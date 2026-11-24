@@ -4,11 +4,13 @@
 
 Geomsupin lets a team pin feedback to a page while reviewing a website in its usual browser. Run it on your server, invite reviewers, and follow their requests and screenshots in one project.
 
-[![Play the Geomsupin tutorial, from connecting a site to leaving and answering a pin](admin/public/tutorial/review-guide-poster.jpg)](admin/public/tutorial/review-guide.mp4?raw=true)
+**One-minute walkthrough · Create a project, invite a teammate, and reply to their pin**
+
+https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
 
 [MP4 video](admin/public/tutorial/review-guide.mp4?raw=true) · [English captions](admin/public/tutorial/review-guide.en.vtt?raw=true) · [Korean captions](admin/public/tutorial/review-guide.ko.vtt?raw=true) · [Korean operations guide](deploy/onprem/README.md)
 
-The tutorial shows the Korean interface. In the installed app, select **EN** in the header, then open the tutorial for English captions by default and English chapter names. If GitHub downloads the MP4, open the `.en.vtt` file as subtitles in your video player.
+The video shows the Korean interface. For English captions and chapters, select **EN** in the installed app and open the tutorial, or download the MP4 and load the English captions in your video player.
 
 ## 1. Prepare the Linux server
 

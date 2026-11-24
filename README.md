@@ -4,11 +4,13 @@
 
 로그인한 사이트에서 고치고 싶은 곳을 클릭해 핀과 의견을 남기는 팀용 검수 도구입니다. 팀 서버에 설치하고 초대 링크를 공유하세요. 참여자는 평소 브라우저에 검수핀 북마크를 저장하면 됩니다.
 
-[![검수핀 사용법 영상 재생. 프로젝트 연결부터 첫 핀과 답글까지](admin/public/tutorial/review-guide-poster.jpg)](admin/public/tutorial/review-guide.mp4?raw=true)
+**1분 사용법 · 프로젝트 만들기부터 팀원의 핀에 답글 달기까지**
+
+https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
 
 [MP4 영상](admin/public/tutorial/review-guide.mp4?raw=true) · [한국어 자막](admin/public/tutorial/review-guide.ko.vtt?raw=true) · [영어 자막](admin/public/tutorial/review-guide.en.vtt?raw=true) · [설치와 운영](deploy/onprem/README.md) · [화면으로 보는 사용법](docs/usage.md)
 
-설치한 검수핀에서는 상단 **사용법 영상**을 누르면 한국어 자막과 장면별 챕터로 볼 수 있습니다. GitHub에서 MP4가 내려받아지면 같은 이름의 `.ko.vtt`를 동영상 플레이어에서 자막으로 여세요.
+설치한 검수핀에서는 상단 **사용법 영상**을 누르면 한국어 자막을 켜거나 원하는 장면으로 이동할 수 있습니다.
 
 ## 1. 서버에 설치
 
