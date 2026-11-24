@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readInstallation } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const argv = process.argv.slice(2);
@@ -15,6 +16,7 @@ for (let i = 0; i < argv.length; i++) { if (argv[i] === '--also') also.push(new 
 const [main] = positional;
 if (!main) { console.error('usage: node scripts/set-hosts.mjs <main-url> [--also <old-url>]...'); process.exit(1); }
 const m = new URL(main);
+if (readInstallation(root).instance === 'http' && m.protocol !== 'http:') throw new Error('HTTP 보조 설치에는 HTTP 공개 주소를 사용하세요.');
 
 const path = join(root, '.env');
 let env = readFileSync(path, 'utf8');

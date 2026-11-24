@@ -17,6 +17,18 @@ describe('사내(on-prem) 설치 설정', () => {
   it('https 공개 주소면 Secure 쿠키', () => {
     expect(buildConfig({ ...base, PUBLIC_URL: 'https://geomsupin.example.com' }).secureCookies).toBe(true);
   });
+  it('keeps the optional peer separate from allowed hosts', () => {
+    expect(buildConfig(base).peerReviewUrl).toBeNull();
+    const paired = buildConfig({ ...base, PEER_REVIEW_URL: 'https://review.example:3443/' });
+    expect(paired.peerReviewUrl).toBe('https://review.example:3443');
+    expect(paired.allowedHosts.has('review.example:3443')).toBe(false);
+  });
+  it.each(['http://review.example:3080', 'javascript:alert(1)', 'https://user@review.example',
+    'https://review.example/r/invite', 'https://review.example/?key=1', 'https://review.example/#manage'])(
+    'rejects invalid peer %s', peer => {
+      expect(() => buildConfig({ ...base, PEER_REVIEW_URL: peer })).toThrow();
+    },
+  );
   it('이미지 프록시의 사설 주소 허용은 기본으로 꺼져 있다(링크만 있으면 누구나 쓰는 프록시라 사내 주소를 열면 안 된다)', () => {
     expect(buildConfig(base).imageProxyAllowPrivate).toBe(false);
     expect(buildConfig({ ...base, IMAGE_PROXY_ALLOW_PRIVATE: '1' }).imageProxyAllowPrivate).toBe(true);

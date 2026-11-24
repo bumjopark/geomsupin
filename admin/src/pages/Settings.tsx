@@ -1,3 +1,4 @@
+import { PeerReviewLink, usePeerReviewUrl } from '../Installation.tsx';
 import { useLocale } from '../locale.tsx';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -61,13 +62,15 @@ export function SettingsPage({ site, reload }: { site: Site; reload: () => Promi
 
 function PreviewSettings({ site, base, busy, save }: { site: Site; base: string; busy: boolean; save: (url: string) => Promise<void> }) {
   const { t } = useLocale();
+  const peer = usePeerReviewUrl();
   const saved = site.preview?.url ?? '';
   const [value, setValue] = useState(saved);
   useEffect(() => { setValue(saved); }, [saved]);
   const checked = parseTargetUrl(value);
-  const issue = checked.ok
-    ? checked.url ? reviewProtocolIssue(new URL(base).protocol, new URL(checked.url).protocol) : undefined
-    : checked.message;
+  const targetProtocol = checked.ok && checked.url ? new URL(checked.url).protocol : undefined;
+  const protocolIssue = targetProtocol ? reviewProtocolIssue(new URL(base).protocol, targetProtocol) : undefined;
+  const issue = checked.ok ? protocolIssue : checked.message;
+  const matchingPeer = protocolIssue && peer && new URL(peer).protocol === targetProtocol ? peer : null;
   const script = site.preview ? `<script defer src="${new URL(base).origin}/w.js" data-gp-preview="${site.preview.id}"></script>` : '';
   return (
     <section className="card pad sec settings-site" aria-label={t("미리보기 연결")}>
@@ -77,7 +80,9 @@ function PreviewSettings({ site, base, busy, save }: { site: Site; base: string;
         <button className="btn primary" type="submit" disabled={busy || !checked.ok || Boolean(issue) || checked.url === saved}>{t("저장")}</button>
         {saved && <button className="btn" type="button" disabled={busy} onClick={() => void save('')}>{t("연결 해제")}</button>}
       </form>
-      {issue && <div className="err" id="site-url-issue" role="alert">{t(issue)}</div>}
+      {issue && <div className="err" id="site-url-issue" role="alert">
+        {matchingPeer ? <>{t('이 주소는 다른 입구에서 검수할 수 있어요. 그곳에서 프로젝트를 만들고 주소를 연결하세요.')} <PeerReviewLink url={matchingPeer} /></> : t(issue)}
+      </div>}
       {script && (
         <details className="bookmark-help preview-settings">
           <summary>{t("내장 미리보기 스크립트")}</summary>

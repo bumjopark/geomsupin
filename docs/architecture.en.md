@@ -4,6 +4,8 @@
 
 Geomsupin runs on a single Node.js server with PostgreSQL and local file storage. The server serves the management app, invitations, widget JavaScript, API, and screenshots. The team hosts the site under review on a separate origin.
 
+On a dual-entry host, HTTPS on port 3443 and HTTP on port 3080 run as separate installations with their own databases, storage and secrets. Each accepts review sites over its own protocol. The public installation endpoint can return the configured peer origin for a link to its home page. Management sessions and invitation permissions belong to the installation that issued them. [Dual-entry setup](../deploy/onprem/README.md#add-an-http-entry-on-port-3080)
+
 ```mermaid
 flowchart LR
     M["Administrator's browser"] -->|"Management cookie · manage projects and requests"| A["Geomsupin server · Fastify"]

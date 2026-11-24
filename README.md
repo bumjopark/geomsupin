@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/726d9867-5e92-4d84-a9c4-20789782bea1
 
 [Download the English MP4](admin/public/tutorial/review-guide.en.mp4?raw=true) · [Korean video](README.ko.md) · [Illustrated guide](docs/usage.en.md)
 
-**Which sites work?** Use an HTTPS staging site that allows the Geomsupin bookmark to load its scripts and connect to your server. Some public sites block embedded previews or the bookmark itself. For an HTTP-only internal app, give the staging site its own HTTPS address. [Site compatibility](docs/usage.en.md#site-compatibility)
+**Which sites work?** Use a staging site that allows the Geomsupin bookmark to load its scripts and connect to your server. Use the default HTTPS entry on port 3443 for HTTPS sites and the optional HTTP entry on port 3080 for HTTP sites. Some public sites block embedded previews or the bookmark itself. [Site compatibility](docs/usage.en.md#site-compatibility)
 
 ## 1. Install on your server
 
@@ -31,7 +31,9 @@ npm run onprem:setup -- --url "https://${GEOMSUPIN_IP}:3443" --bind 127.0.0.1 --
   curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:3443/healthz"
 ```
 
-Send the public certificate `.local/tls/ca.crt` to reviewers through a trusted channel. On each reviewer's computer, verify its SHA-256 fingerprint against the one the TLS helper printed, then trust the CA in the browser or operating system. Open `https://YOUR_SERVER_IP:3443/healthz` there. You should see `{"ok":true}` without a certificate warning. The site under review must also open over HTTPS on a different origin. Teams that prefer a domain manage their own DNS, certificate, and reverse proxy. [Certificate setup and operations](deploy/onprem/README.md)
+Send the public certificate `.local/tls/ca.crt` to reviewers through a trusted channel. On each reviewer's computer, verify its SHA-256 fingerprint against the one the TLS helper printed, then trust the CA in the browser or operating system. Open `https://YOUR_SERVER_IP:3443/healthz` there. You should see `{"ok":true}` without a certificate warning. For this entry, use a site on a different HTTPS origin. Teams that prefer a domain manage their own DNS, certificate, and reverse proxy. [Certificate setup and operations](deploy/onprem/README.md)
+
+For HTTP-only sites, [add the optional HTTP entry on the same IPv4 address](deploy/onprem/README.md#add-an-http-entry-on-port-3080). Projects, invitations, and administrator access are separate. HTTP sends invitation links, comments, and screenshots without encryption, so use it only on a trusted network with test data.
 
 ## 2. Open the administrator link
 

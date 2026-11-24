@@ -6,7 +6,7 @@ Select **EN** and open **Tutorial video** to follow a project from setup to the 
 
 ## Invite your team
 
-Open the administrator link and create a project. On a new installation, run `npm run manage` on the server to issue the administrator link. [Installation guide](../deploy/onprem/README.md)
+Open the administrator link and create a project. Issue the administrator link with `npm run manage` from the checkout for the protocol of your review site. [Installation guide](../deploy/onprem/README.md)
 
 ![English Projects screen with Harbor Studio website review entered in the project name field](images/en/create-project.png)
 
@@ -57,7 +57,11 @@ In **Settings → Advanced settings → Manage invitation links**, create links 
 | The HTTPS staging site allows Geomsupin scripts and API connections | Open the site in its own tab, sign in normally, and click the project bookmark. |
 | The site blocks framing, for example Naver’s home page | The embedded preview is unavailable. The bookmark in the original tab still depends on that site's script and connection policies. |
 | The site or browser blocks the bookmark, its scripts, or its API connection | Pins are unavailable on that page. On a site you manage, ask its administrator to allow your Geomsupin origin. On other sites, the owner controls these settings. |
-| The staging site only has an HTTP address | The HTTPS installation requires an HTTPS review URL. Your team can terminate TLS at the staging site's own reverse proxy and forward requests to the internal HTTP app. Register the HTTPS address that reviewers actually open. |
+| The staging site only has an HTTP address | Open the separate HTTP entry on port 3080 and register the site's existing HTTP address. [Add the HTTP entry](../deploy/onprem/README.md#add-an-http-entry-on-port-3080) |
+
+Check the protocol shown at the top of Geomsupin. The HTTPS entry on port 3443 reviews HTTPS sites. If both entries are configured, the link to the other entry only opens its home page. Each installation has separate projects, invitations, and administrator access. Use the invitation issued by the correct installation.
+
+HTTP sends invitation links, comments, and screenshots without encryption. Use a trusted network and test data.
 
 The original tab and the embedded preview have separate requirements. To pin inside **Preview in browser**, the site must also allow framing and include the **Embedded preview script** from project settings. [Browser framing policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options) · [Mixed content](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Mixed_content)
 
@@ -65,4 +69,4 @@ The original tab and the embedded preview have separate requirements. To pin ins
 
 - **Check the tab’s address.** Use the bookmark in the original site tab on the registered scheme, host, and port. If the site redirects, register the final address and save a new bookmark. For example, `naver.com` and `www.naver.com` are different origins. If you are on a separate sign-in provider’s page, finish signing in and return to the review site.
 - **Open the current invitation.** If the administrator changed the linked site or invitation, save the bookmark again from the current invitation. If no message appears, reload the review site and try the bookmark again.
-- **Check the site and browser policies.** The bookmark needs no script permanently added to the review site. It still needs the browser to run a JavaScript bookmark and the site to allow Geomsupin’s scripts and API connections. Restrictive policies can block the tool without showing a message. For internal staging, ask the site administrator to check those policies and whether your browser trusts the Geomsupin server’s HTTPS certificate.
+- **Check the site and browser policies.** The bookmark needs no script permanently added to the review site. It still needs the browser to run a JavaScript bookmark and the site to allow Geomsupin’s scripts and API connections. Restrictive policies can block the tool without showing a message. For internal staging, ask the site administrator to check those policies and, when using the HTTPS entry, whether your browser trusts the Geomsupin server’s certificate.

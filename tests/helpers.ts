@@ -55,6 +55,7 @@ export async function startTestApp(extraEnv: Record<string, string> = {}): Promi
       ...process.env,
       PORT: '0',
       PUBLIC_URL: 'http://localhost:80',
+      PEER_REVIEW_URL: '',
       ALLOWED_HOSTS: 'localhost:80,localhost',
       IMAGE_PROXY_ALLOW_PRIVATE: 'false',
       ...extraEnv,

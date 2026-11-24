@@ -44,7 +44,7 @@ npm ci --include=dev
 
 The default setup uses a fixed server IPv4 address reachable from reviewers' PCs. Use a static IP or a DHCP reservation. Allow inbound `3443/tcp` from the review team's network. The user nginx service listens on `0.0.0.0:3443` for HTTPS and proxies to the API at `127.0.0.1:3200`. Keep the API and the dedicated database port `55433` on loopback.
 
-The site under review must also use HTTPS and have a different origin. Confirm both addresses open from the reviewer's PC. If the staging app listens on HTTP internally, its own reverse proxy can serve HTTPS to reviewers. Register that HTTPS address in the project. Check the site’s script, connection, and framing policies before inviting the team. [Site compatibility](../../docs/usage.en.md#site-compatibility)
+Use a different HTTPS origin for sites reviewed on port 3443. For HTTP sites, use the separate HTTP entry described below and register the original HTTP address. Confirm both Geomsupin and the site open from the reviewer's PC. Check the site's script, connection, and framing policies before inviting the team. [Site compatibility](../../docs/usage.en.md#site-compatibility)
 
 ## First installation
 
@@ -73,6 +73,37 @@ curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:344
 
 The installed HTTPS server also serves the public certificate at `/gp-ca.crt`. Use an approved distribution channel on PCs that have yet to trust the CA. Renew the server certificate before expiry by rerunning the TLS command for the current IP and TLS directory with `--renew`.
 
+### Add an HTTP entry on port 3080
+
+Keep the HTTPS installation on 3443 for HTTPS sites. Add a separate checkout for HTTP sites. Use the same IPv4 address for both entries. It can be a public IP assigned to the server or an internal IP reachable by reviewers. Allow reviewers to reach TCP port 3080. The site under review keeps its existing HTTP URL.
+
+From the HTTPS checkout, run the following in Bash with the same `GEOMSUPIN_IP` as above. The subshell returns to the HTTPS checkout when it finishes.
+
+```sh
+(
+  cd .. &&
+  git clone https://github.com/bumjopark/geomsupin.git geomsupin-http &&
+  cd geomsupin-http &&
+  npm ci --include=dev &&
+  npm run onprem:setup -- --instance http --url "http://${GEOMSUPIN_IP}:3080" --bind "$GEOMSUPIN_IP" --port 3080 --peer-url "https://${GEOMSUPIN_IP}:3443" --services
+)
+```
+
+The HTTP checkout has its own `.env`, `AUTH_SECRET`, data and backups. Its dedicated database listens on loopback port 55434. Keep both installations' databases and secrets separate. The HTTP services use the `geomsupin-http-` prefix.
+
+In the HTTPS checkout's `.env`, add or update `PEER_REVIEW_URL=http://SERVER-IP:3080` with the same address used for the HTTP installation. Then run these checks.
+
+```sh
+systemctl --user restart geomsupin-api
+systemctl --user status geomsupin-http-api geomsupin-http-db geomsupin-http-backup.timer
+curl --fail --show-error "http://${GEOMSUPIN_IP}:3080/healthz"
+curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:3443/healthz"
+```
+
+Each entry identifies its protocol and links to the other entry's home page. The link carries no invitation or administrator details and does not redirect automatically. Run `npm run manage -- --name "Our HTTP review team"` from the HTTP checkout to issue its first administrator link. Create its projects and issue its invitations there. Projects, invitations, and management access are separate across the two entries.
+
+**HTTP sends invitation links, comments, and screenshots without encryption.** Use the HTTP entry only on a trusted network with test data. Keep sensitive reviews on HTTPS.
+
 ### Use an existing PostgreSQL database
 
 Use these commands in place of the default setup commands above. Prepare an empty database and a dedicated login that can create the migration schema and tables. Allow connections from the Geomsupin host and install PostgreSQL 16's `pg_dump` and `pg_restore` on that host for backup and recovery.
@@ -98,6 +129,8 @@ If your team already manages DNS, a trusted public certificate, and an HTTPS pro
 | --- | --- |
 | `--database-url URL` | Use an existing empty PostgreSQL database and skip the dedicated DB service. |
 | `--bind`, `--port` | Set the API listener when it differs from the public address. |
+| `--instance http`, `--pg-port PORT` | Configure the separate HTTP checkout. Its dedicated loopback DB defaults to port 55434. |
+| `--peer-url URL` | Link to the home page of the other installation, using the opposite protocol. |
 | `--services` | Manage the API and backup timer with user systemd. Omit it to start the API with `npm start` after setup. |
 | `--issue-admin` | Issue an administrator link during setup. |
 | `--rebuild` | Rebuild the web app and widget from the current checkout. |

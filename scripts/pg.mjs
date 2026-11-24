@@ -8,12 +8,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, chm
 import { randomBytes } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { databaseAddress, readInstallation } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const BIN = process.env.PG_BIN || '/usr/lib/postgresql/16/bin';
+const { env, pgPort: PORT, dedicatedCluster } = readInstallation(root);
+const BIN = process.env.PG_BIN || env.PG_BIN || '/usr/lib/postgresql/16/bin';
 const DATA = join(root, 'data', 'postgres');
 const SECRETS = join(root, 'data', 'secrets');
-const PORT = Number(process.env.GP_PG_PORT || 55433);
 const ADMIN = 'geomsupin_admin';
 const APP = 'geomsupin_app';
 const DB = 'geomsupin';
@@ -42,20 +43,36 @@ function isRunning() {
   return run(bin('pg_ctl'), ['-D', DATA, 'status'], { allowFail: true }).status === 0;
 }
 
+function assertRunningPort() {
+  if (Number(readFileSync(join(DATA, 'postmaster.pid'), 'utf8').split('\n')[3]) !== PORT) {
+    throw new Error(`실행 중인 전용 클러스터의 포트가 GP_PG_PORT=${PORT}와 다릅니다.`);
+  }
+}
+
 function start() {
-  if (isRunning()) return console.log('postgres already running');
+  const configured = run(bin('postgres'), ['-D', DATA, '-C', 'port']).stdout.trim();
+  if (Number(configured) !== PORT) throw new Error(`이 PostgreSQL 클러스터의 포트 ${configured}와 GP_PG_PORT=${PORT}가 다릅니다.`);
+  if (isRunning()) {
+    assertRunningPort();
+    return console.log('postgres already running');
+  }
   run(bin('pg_ctl'), ['-D', DATA, '-l', join(root, 'data', 'postgres.log'), '-w', 'start']);
   console.log(`postgres up on 127.0.0.1:${PORT}`);
 }
 
 function init() {
+  const configuredDb = databaseAddress(env.DATABASE_URL);
+  if (env.GP_DATABASE_MODE === 'external' || (env.DATABASE_URL &&
+    (!configuredDb || configuredDb.host !== '127.0.0.1' || configuredDb.port !== PORT || configuredDb.name !== DB))) {
+    throw new Error('현재 DATABASE_URL이 이 설치의 전용 PostgreSQL 주소와 다릅니다.');
+  }
   mkdirSync(SECRETS, { recursive: true, mode: 0o700 });
   const adminPw = existsSync(join(SECRETS, 'pg-admin')) ? readSecret('pg-admin') : rand();
   const appPw = existsSync(join(SECRETS, 'pg-app')) ? readSecret('pg-app') : rand();
   writeFileSync(join(SECRETS, 'pg-admin'), adminPw + '\n', { mode: 0o600 });
   writeFileSync(join(SECRETS, 'pg-app'), appPw + '\n', { mode: 0o600 });
 
-  if (!existsSync(join(DATA, 'PG_VERSION'))) {
+  if (!dedicatedCluster) {
     const pwfile = join(SECRETS, '.pwfile');
     writeFileSync(pwfile, adminPw, { mode: 0o600 });
     run(bin('initdb'), ['-D', DATA, '-U', ADMIN, '--pwfile', pwfile, '--auth=scram-sha-256', '-E', 'UTF8', '--locale=C.UTF-8']);
@@ -84,6 +101,7 @@ function init() {
   const testUrl = `postgresql://${APP}:${appPw}@127.0.0.1:${PORT}/${TEST_DB}`;
   const cur = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
   const add = [];
+  if (!/^GP_PG_PORT=/m.test(cur)) add.push(`GP_PG_PORT=${PORT}`);
   if (!/^DATABASE_URL=/m.test(cur)) add.push(`DATABASE_URL=${url}`);
   if (!/^TEST_DATABASE_URL=/m.test(cur)) add.push(`TEST_DATABASE_URL=${testUrl}`);
   if (add.length) {
@@ -99,6 +117,8 @@ else if (cmd === 'start') start();
 else if (cmd === 'stop') { run(bin('pg_ctl'), ['-D', DATA, '-m', 'fast', '-w', 'stop'], { allowFail: true }); console.log('stopped'); }
 else if (cmd === 'status') { const r = run(bin('pg_ctl'), ['-D', DATA, 'status'], { allowFail: true }); console.log((r.stdout || r.stderr).trim()); }
 else if (cmd === 'psql') {
+  if (!isRunning()) throw new Error('이 설치의 전용 PostgreSQL 클러스터가 실행 중이지 않습니다.');
+  assertRunningPort();
   const r = spawnSync(bin('psql'), ['-h', '127.0.0.1', '-p', String(PORT), '-U', APP, '-d', DB], { stdio: 'inherit', env: { ...process.env, PGPASSWORD: readSecret('pg-app') } });
   process.exit(r.status ?? 0);
 } else {

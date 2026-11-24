@@ -12,15 +12,19 @@
 // PC 에서 경고 없이 쓰려면 ca.crt(https://<주소>:<포트>/gp-ca.crt 로도 내려받을 수 있다)를 한 번 설치한다. 자세한 절차는 deploy/onprem/README.md.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { isIPv4 } from 'node:net';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertUnitOwnership, readInstallation, unitDir, unitMarker } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
 const flag = (name) => args.includes(`--${name}`);
+const { env, instance, prefix } = readInstallation(root);
+if (instance === 'http') throw new Error('HTTP 보조 설치에서는 TLS를 설정할 수 없습니다. HTTPS 설치 폴더를 사용하세요.');
+const unitName = `${prefix}-tls.service`;
+if (!flag('no-service')) assertUnitOwnership(root, prefix, [`${prefix}-api.service`, unitName]);
 
 const host = option('host');
 if (!host || !/^[A-Za-z0-9.-]+$/.test(host)) {
@@ -29,7 +33,7 @@ if (!host || !/^[A-Za-z0-9.-]+$/.test(host)) {
 }
 const port = Number(option('port', '3443'));
 if (!Number.isInteger(port) || port < 1024 || port > 65535) { console.error('--port 는 1024~65535 사이여야 합니다(사용자 권한 nginx 는 1024 미만 포트를 쓸 수 없습니다)'); process.exit(1); }
-const envPort = (() => { try { return readFileSync(join(root, '.env'), 'utf8').match(/^PORT=(\d+)$/m)?.[1]; } catch { return undefined; } })();
+const envPort = env.PORT;
 const upstream = option('upstream', `127.0.0.1:${envPort || '3200'}`);
 const dir = resolve(root, option('dir', '.local/tls'));
 const nginxDir = join(dir, 'nginx');
@@ -133,10 +137,11 @@ try { execFileSync(nginxCommand[0], [...nginxCommand.slice(1), '-t'], { stdio: [
 catch (e) { console.error('nginx 설정 검사 실패:\n' + (e.stderr?.toString() || e.message)); process.exit(1); }
 
 // 4) systemd 사용자 서비스
-const unitPath = join(homedir(), '.config/systemd/user/geomsupin-tls.service');
-const unit = `[Unit]
+const unitPath = join(unitDir(), unitName);
+const unit = `${unitMarker(root)}
+[Unit]
 Description=Geomsupin HTTPS 프록시 (nginx, 사용자 권한, ${host}:${port})
-After=network.target geomsupin-api.service
+After=network.target ${prefix}-api.service
 
 [Service]
 Type=simple
@@ -151,12 +156,12 @@ WantedBy=default.target
 if (flag('no-service')) {
   console.log(`\n서비스 등록은 건너뛰었습니다(--no-service). 직접 실행: ${nginxCommand.join(' ')} -g 'daemon off;'`);
 } else {
-  mkdirSync(join(homedir(), '.config/systemd/user'), { recursive: true });
+  mkdirSync(unitDir(), { recursive: true });
   writeFileSync(unitPath, unit);
   execFileSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'inherit' });
-  execFileSync('systemctl', ['--user', 'enable', 'geomsupin-tls.service'], { stdio: 'inherit' });
-  execFileSync('systemctl', ['--user', 'restart', 'geomsupin-tls.service'], { stdio: 'inherit' });
-  console.log('\ngeomsupin-tls 서비스를 시작했습니다.');
+  execFileSync('systemctl', ['--user', 'enable', unitName], { stdio: 'inherit' });
+  execFileSync('systemctl', ['--user', 'restart', unitName], { stdio: 'inherit' });
+  console.log(`\n${unitName} 서비스를 시작했습니다.`);
 }
 
 const fingerprint = openssl('x509', '-in', file('ca.crt'), '-noout', '-fingerprint', '-sha256').trim().replace(/^.*=/, '');
@@ -167,4 +172,4 @@ CA 인증서 파일: ${file('ca.crt')}
   내려받기: https://${host}:${port}/gp-ca.crt
   SHA-256 지문(설치 전에 이 값과 같은지 확인): ${fingerprint}
 서버 인증서 만료: ${expires}  (다시 발급: node scripts/tls-setup.mjs --host ${host} --port ${port} --renew)
-검수핀 공개 주소를 변경한 경우: node scripts/set-hosts.mjs https://${host}:${port}  →  systemctl --user restart geomsupin-api`);
+검수핀 공개 주소를 변경한 경우: node scripts/set-hosts.mjs https://${host}:${port}  →  systemctl --user restart ${prefix}-api`);

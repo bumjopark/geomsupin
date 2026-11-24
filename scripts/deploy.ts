@@ -7,9 +7,12 @@ import { basename, dirname, join, sep } from 'node:path';
 import { createBackup } from '../server/backup.ts';
 import { loadConfig, ROOT } from '../server/config.ts';
 import { pruneReleases, switchRuntime } from './releases.ts';
+import { apiOrigin, readInstallation } from './installation-settings.mjs';
 
 const config = loadConfig();
-const configHash = createHash('sha256').update(JSON.stringify({ ...config, allowedHosts: [...config.allowedHosts].sort() })).digest('hex');
+const { instance, prefix } = readInstallation(ROOT);
+const apiUnit = `${prefix}-api.service`;
+const configHash = createHash('sha256').update(JSON.stringify({ ...config, ...(instance === 'http' ? { instance } : {}), allowedHosts: [...config.allowedHosts].sort() })).digest('hex');
 const state = join(ROOT, '.local');
 const releases = join(state, 'releases');
 const env = { ...process.env, DATA_DIR: config.dataDir };
@@ -17,7 +20,11 @@ const run = (cmd: string, args: string[], cwd = ROOT) => execFileSync(cmd, args,
 const git = (...args: string[]) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
 const stamp = () => new Date().toISOString().replace(/[-:.]/g, '');
 const metadata = async (path: string, data: unknown) => writeFile(path, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
-const sc = async (action: string) => { run('systemctl', ['--user', action, 'geomsupin-api.service']); };
+const sc = async (action: string) => { run('systemctl', ['--user', action, apiUnit]); };
+function assertApiUnit() {
+  const unit = execFileSync('systemctl', ['--user', 'show', apiUnit, '--property=ExecStart', '--value'], { encoding: 'utf8' });
+  assert.ok(unit.includes(join(ROOT, 'scripts/serve-release.mjs')), `${apiUnit}이 이 설치의 경로를 사용해야 합니다. npm run services:install로 서비스 정의를 확인하세요.`);
+}
 
 async function runtimeHash(app: string) {
   const hash = createHash('sha256');
@@ -72,7 +79,7 @@ async function preserveAssets(old: string, app: string) {
 }
 
 async function smoke(app: string) {
-  const base = `http://127.0.0.1:${config.port}`;
+  const base = apiOrigin(config.host, config.port);
   const headers = { host: new URL(config.publicUrl).host };
   for (let i = 0; ; i++) {
     try { const response = await fetch(base + '/healthz', { headers, signal: AbortSignal.timeout(2000) }); assert.equal(response.status, 200); break; }
@@ -122,8 +129,7 @@ try {
     assert.equal(configHash, prepared.configHash, '준비 후 운영 설정이 바뀌었습니다. 다시 준비하세요');
     assert.equal(await runtimeHash(app), prepared.runtimeHash, '검증 후 릴리스 내용이 바뀌었습니다');
     if (existsSync(join(state, 'current'))) assert.equal(await realpath(join(state, 'current')), prepared.previous, '준비 후 다른 배포가 진행됐습니다. 다시 준비하세요');
-    const unit = execFileSync('systemctl', ['--user', 'show', 'geomsupin-api', '--property=ExecStart', '--value'], { encoding: 'utf8' });
-    assert.ok(unit.includes(join(ROOT, 'scripts/serve-release.mjs')), '먼저 npm run services:install로 새 서비스 진입점을 등록하세요');
+    assertApiUnit();
     const backup = await createBackup({ databaseUrl: config.databaseUrl, dataDir: config.dataDir, backupDir: process.env.BACKUP_DIR || join(config.dataDir, 'backups'), mirrorDir: process.env.BACKUP_MIRROR_DIR || undefined, envFile: join(ROOT, '.env'), kind: 'deployment' });
     const record = { commit: prepared.commit, directory, runtime: app, previous: prepared.previous, backup: backup.directory, deployedAt: new Date().toISOString() };
     await metadata(join(directory, 'activation.json'), record);
@@ -135,6 +141,7 @@ try {
     console.log(`배포·스모크 점검 완료: ${prepared.commit.slice(0, 7)}. 이전 런타임: ${prepared.previous}`);
   } else if (action === '--rollback' && id) {
     assert.match(id, /^[a-z0-9-]+$/i);
+    assertApiUnit();
     const directory = join(releases, id);
     const prepared = JSON.parse(await readFile(join(directory, 'prepared.json'), 'utf8'));
     const app = join(directory, 'app');

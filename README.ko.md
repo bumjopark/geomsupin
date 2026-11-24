@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/b99c4dd8-4933-4783-b115-886f67be48b3
 
 [한국어 MP4 다운로드](admin/public/tutorial/review-guide.mp4?raw=true) · [영어 영상](README.md) · [화면으로 보는 사용법](docs/usage.md)
 
-**어떤 사이트에서 쓸 수 있나요?** 검수핀 스크립트와 서버 연결을 허용하는 HTTPS 스테이징에서 사용할 수 있습니다. 공개 사이트는 미리보기나 북마크 실행을 제한할 수 있습니다. HTTP로만 운영하는 사내 사이트라면 그 사이트에 HTTPS 접속 주소를 마련하세요. [사이트별 사용 조건](docs/usage.md#사이트별-사용-조건)
+**어떤 사이트에서 쓸 수 있나요?** 검수핀 스크립트와 서버 연결을 허용하는 스테이징에서 사용할 수 있습니다. HTTPS 사이트는 기본 3443 입구에서, HTTP 사이트는 선택 설치하는 3080 입구에서 검수합니다. 공개 사이트는 미리보기나 북마크 실행을 제한할 수 있습니다. [사이트별 사용 조건](docs/usage.md#사이트별-사용-조건)
 
 ## 1. 서버에 설치
 
@@ -33,7 +33,9 @@ npm run onprem:setup -- --url "https://${GEOMSUPIN_IP}:3443" --bind 127.0.0.1 --
   curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:3443/healthz"
 ```
 
-참여자에게는 공개 인증서 `.local/tls/ca.crt`를 신뢰할 수 있는 경로로 전달하세요. 각 PC에서 TLS 도구가 출력한 SHA-256 지문과 대조한 뒤 브라우저나 운영체제에 신뢰하는 인증기관으로 등록합니다. 참여자 PC에서 `https://서버IP:3443/healthz`를 열어 인증서 경고 없이 `{"ok":true}`가 보이면 준비됐습니다. 검수할 사이트도 다른 출처의 HTTPS 주소로 열려야 합니다. 도메인을 쓰려는 팀은 자체 DNS·인증서·프록시를 구성하세요. [인증서 등록과 운영 안내](deploy/onprem/README.ko.md#처음-설치)
+참여자에게는 공개 인증서 `.local/tls/ca.crt`를 신뢰할 수 있는 경로로 전달하세요. 각 PC에서 TLS 도구가 출력한 SHA-256 지문과 대조한 뒤 브라우저나 운영체제에 신뢰하는 인증기관으로 등록합니다. 참여자 PC에서 `https://서버IP:3443/healthz`를 열어 인증서 경고 없이 `{"ok":true}`가 보이면 준비됐습니다. 이 입구에서는 검수핀과 다른 출처의 HTTPS 사이트를 사용합니다. 도메인을 쓰려는 팀은 자체 DNS·인증서·프록시를 구성하세요. [인증서 등록과 운영 안내](deploy/onprem/README.ko.md#처음-설치)
+
+HTTP 사이트를 검수하려면 [같은 IPv4 주소에 HTTP 입구를 추가하세요](deploy/onprem/README.ko.md#3080-포트에-http-입구-추가). 두 입구는 프로젝트·초대·관리 권한을 따로 운영합니다. HTTP에서는 초대 링크·댓글·캡처가 평문으로 전송되므로 신뢰할 수 있는 네트워크에서 테스트 데이터만 사용하세요.
 
 ## 2. 관리 링크 받기
 

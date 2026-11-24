@@ -44,7 +44,7 @@ npm ci --include=dev
 
 검수핀의 기본 설치는 팀 PC에서 접속할 수 있는 고정 서버 IPv4 주소를 사용합니다. 고정 IP 또는 DHCP 예약을 준비하세요. 방화벽에서 검수할 팀 네트워크에만 서버의 `3443/tcp`를 허용합니다. 사용자 nginx는 `0.0.0.0:3443`에서 HTTPS를 받고 API의 `127.0.0.1:3200`으로 전달합니다. API 포트와 전용 DB 포트 `55433`은 루프백에서만 사용합니다.
 
-검수할 사이트도 HTTPS여야 하며 검수핀과 다른 출처에 있어야 합니다. 참여자 PC에서 양쪽 주소가 열리는지 확인하세요. 스테이징 앱이 내부에서 HTTP로 실행된다면 그 사이트의 프록시에서 HTTPS를 제공하고, 참여자가 여는 HTTPS 주소를 프로젝트에 등록하세요. 초대 전에 대상 사이트의 스크립트·연결·iframe 정책도 확인하세요. [사이트별 사용 조건](../../docs/usage.md#사이트별-사용-조건)
+3443 입구에서는 검수핀과 다른 출처의 HTTPS 사이트를 사용합니다. HTTP 사이트는 아래의 별도 HTTP 입구에 원래 주소를 등록합니다. 참여자 PC에서 검수핀과 검수할 사이트가 모두 열리는지 확인하세요. 초대 전에 대상 사이트의 스크립트·연결·iframe 정책도 확인하세요. [사이트별 사용 조건](../../docs/usage.md#사이트별-사용-조건)
 
 ## 처음 설치
 
@@ -73,6 +73,37 @@ curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:344
 
 설치한 HTTPS 서버에서도 `/gp-ca.crt`로 공개 인증서를 제공합니다. 아직 신뢰를 설정하지 않은 PC에는 승인된 사내 경로로 먼저 배포하세요. 서버 인증서가 만료되기 전에 현재 IP와 TLS 디렉터리를 사용한 명령에 `--renew`를 붙여 갱신합니다.
 
+### 3080 포트에 HTTP 입구 추가
+
+HTTPS 사이트용 3443은 유지하고 HTTP 사이트용 검수핀을 별도 복제본에 설치합니다. 두 입구는 같은 IPv4 주소를 씁니다. 서버에 할당된 공인 IP 또는 참여자가 접속할 수 있는 사내 IP를 쓰고 TCP 3080 포트로 들어올 수 있게 하세요. 검수할 사이트는 기존 HTTP 주소를 그대로 사용합니다.
+
+HTTPS 설치 폴더에서 위와 같은 `GEOMSUPIN_IP` 값으로 다음 Bash 명령을 실행합니다. 괄호 안의 명령이 끝나면 원래 HTTPS 설치 폴더에 남습니다.
+
+```sh
+(
+  cd .. &&
+  git clone https://github.com/bumjopark/geomsupin.git geomsupin-http &&
+  cd geomsupin-http &&
+  npm ci --include=dev &&
+  npm run onprem:setup -- --instance http --url "http://${GEOMSUPIN_IP}:3080" --bind "$GEOMSUPIN_IP" --port 3080 --peer-url "https://${GEOMSUPIN_IP}:3443" --services
+)
+```
+
+HTTP 복제본은 자체 `.env`, `AUTH_SECRET`, 데이터와 백업을 사용합니다. 전용 DB는 루프백 55434 포트에서 실행합니다. 두 설치의 DB와 비밀값을 따로 유지하세요. HTTP 서비스 이름은 `geomsupin-http-`로 시작합니다.
+
+HTTPS 설치의 `.env`에 `PEER_REVIEW_URL=http://서버-IP:3080`을 추가하거나 갱신합니다. HTTP 설치에 사용한 같은 IPv4 주소를 넣고 다음 명령으로 확인하세요.
+
+```sh
+systemctl --user restart geomsupin-api
+systemctl --user status geomsupin-http-api geomsupin-http-db geomsupin-http-backup.timer
+curl --fail --show-error "http://${GEOMSUPIN_IP}:3080/healthz"
+curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:3443/healthz"
+```
+
+각 입구는 현재 접속 방식과 상대 입구의 첫 화면으로 이동할 링크를 보여 줍니다. 링크에는 초대나 관리 정보가 없으며 자동으로 이동하지 않습니다. HTTP 복제 폴더에서 `npm run manage -- --name "우리 HTTP 검수 팀"`을 실행해 첫 관리 링크를 발급하세요. 그 입구에서 프로젝트를 만들고 초대 링크를 발급합니다. 두 입구의 프로젝트·초대·관리 권한은 별도입니다.
+
+**HTTP에서는 초대 링크·댓글·캡처가 평문으로 전송됩니다.** 신뢰할 수 있는 네트워크에서 테스트 데이터만 사용하세요. 민감한 검수는 HTTPS 입구를 사용하세요.
+
 ### 외부 PostgreSQL 사용
 
 기본 설치 대신 아래 명령을 실행합니다. 빈 DB와 마이그레이션 스키마·테이블을 만들 수 있는 전용 로그인 역할을 준비하세요. 설치 계정에서 DB에 접속할 수 있어야 하며, 설치 서버에 백업·복구용 PostgreSQL 16의 `pg_dump`와 `pg_restore`도 필요합니다.
@@ -98,6 +129,8 @@ unset GEOMSUPIN_DATABASE_URL
 | --- | --- |
 | `--database-url <접속 주소>` | 이미 준비한 빈 PostgreSQL DB를 쓸 때. 전용 DB 서비스 생성을 건너뜁니다. |
 | `--bind`, `--port` | 외부 공개 주소와 API 수신 주소·포트가 다를 때 |
+| `--instance http`, `--pg-port 포트` | 별도 HTTP 복제본을 설치할 때. 전용 루프백 DB의 기본 포트는 55434입니다. |
+| `--peer-url 주소` | 반대 프로토콜을 사용하는 검수핀의 첫 화면을 연결할 때 |
 | `--services` | systemd로 API와 백업 타이머를 운영할 때. 생략하면 설치 후 `npm start`로 직접 실행합니다. |
 | `--issue-admin` | 설치 직후 기본 작업공간의 관리 링크도 함께 발급할 때 |
 | `--rebuild` | 현재 소스로 정적 파일을 다시 빌드할 때 |

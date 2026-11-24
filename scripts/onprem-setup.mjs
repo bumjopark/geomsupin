@@ -7,6 +7,9 @@
 //   --bind <주소>         서버가 듣는 주소. 기본 0.0.0.0 (사내 모든 인터페이스). 127.0.0.1 이면 이 서버 안에서만 접속된다
 //   --database-url <URL>  사내에 이미 있는 PostgreSQL 을 쓴다. 없으면 이 폴더에 전용 PostgreSQL 클러스터(127.0.0.1)를 만든다
 //   --port <번호>         내부 API 포트. HTTPS 프록시를 쓸 때 공개 주소의 포트와 별도로 지정한다
+//   --instance <이름>     default 또는 http. 공존하는 HTTP 설치는 별도 복제 폴더에서 http를 지정한다
+//   --pg-port <번호>      전용 DB 포트. 기본은 default 55433, http 55434
+//   --peer-url <주소>     상대 HTTP/HTTPS 검수핀의 공개 주소. 생략하면 기존 값 유지
 //   --issue-admin         설치 뒤 현재 작업공간의 1회용 관리 링크를 발급한다
 //   --services            systemd 사용자 서비스까지 만들어 바로 켠다 (Linux)
 //   --rebuild             위젯·관리 화면을 다시 빌드한다
@@ -19,21 +22,31 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { loadEnvFile } from '../shared/env-file.mjs';
-import { readInstallation } from './installation-settings.mjs';
+import { peerReviewOrigin } from '../shared/installation-peer.mjs';
+import { apiOrigin, apiUnitNames, assertUnitOwnership, checkedPort, databaseAddress, readInstallation, servicePrefix, unitOwner } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const argv = process.argv.slice(2);
-const flag = (n) => argv.includes(`--${n}`);
-const opt = (n) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined; };
 const die = (msg) => { console.error(`\n✗ ${msg}\n`); process.exit(1); };
+let options;
+try {
+  ({ values: options } = parseArgs({ options: {
+    url: { type: 'string' }, bind: { type: 'string' }, port: { type: 'string' }, instance: { type: 'string' },
+    'pg-port': { type: 'string' }, 'peer-url': { type: 'string' }, 'database-url': { type: 'string' },
+    'issue-admin': { type: 'boolean' }, services: { type: 'boolean' }, rebuild: { type: 'boolean' }, force: { type: 'boolean' },
+    help: { type: 'boolean', short: 'h' },
+  } }));
+} catch (error) { die(error.message); }
+const flag = (n) => Boolean(options[n]);
+const opt = (n) => options[n];
 const step = (msg) => console.log(`\n▶ ${msg}`);
 const rand = (n) => randomBytes(n).toString('base64url');
 
 if (flag('help') || flag('h') || !opt('url')) {
   console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
-  process.exit(opt('url') ? 0 : 1);
+  process.exit(flag('help') ? 0 : 1);
 }
 
 // ── 점검 ──
@@ -46,16 +59,46 @@ let url;
 try { url = new URL(opt('url')); } catch { die(`--url 이 올바른 주소가 아닙니다: ${opt('url')}`); }
 if (!/^https?:$/.test(url.protocol)) die('--url 은 http:// 또는 https:// 로 시작해야 합니다');
 if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) die('--url에는 검수핀의 프로토콜, 호스트, 포트만 입력하세요');
-const port = Number(opt('port') ?? (url.port || (url.protocol === 'https:' ? 443 : 80)));
-if (!Number.isInteger(port) || port < 1 || port > 65535) die('--port는 1~65535 범위의 포트 번호입니다');
-const bind = opt('bind') ?? '0.0.0.0';
-const { env: saved, externalDatabase } = readInstallation(root);
+const installation = readInstallation(root);
+const { env: saved, externalDatabase, dedicatedCluster, savedPgPort } = installation;
+const instance = opt('instance') ?? installation.instance;
+const prefix = servicePrefix(instance);
+if (instance !== installation.instance && (saved.GP_INSTANCE || saved.PUBLIC_URL || dedicatedCluster)) {
+  die('이미 구성된 인스턴스의 이름은 변경할 수 없습니다. 별도의 복제 폴더를 사용하세요.');
+}
+if (instance === 'http' && url.protocol !== 'http:') die('--instance http는 HTTP 공개 주소가 필요합니다.');
+const peer = peerReviewOrigin(url.origin, opt('peer-url'));
+if (opt('peer-url') !== undefined && opt('peer-url').trim() && !peer) die('--peer-url에는 반대 프로토콜을 쓰는 검수핀의 루트 주소를 입력하세요.');
+const peerChanged = opt('peer-url') !== undefined && (saved.PEER_REVIEW_URL || '') !== (peer ?? '');
+const port = checkedPort(opt('port') ?? saved.PORT ?? (url.port || (url.protocol === 'https:' ? 443 : 80)), '--port');
+const pgPort = checkedPort(opt('pg-port') ?? savedPgPort ?? (process.env.GP_PG_PORT || (instance === 'http' ? 55434 : 55433)), '--pg-port');
+if (savedPgPort !== undefined && Number(savedPgPort) !== pgPort) die('기존 설치의 PostgreSQL 포트를 변경할 수 없습니다.');
+const bind = opt('bind') ?? saved.HOST ?? '0.0.0.0';
+if (!net.isIP(bind) && !/^[A-Za-z0-9.-]+$/.test(bind)) die('--bind에 수신할 IP 또는 호스트를 입력하세요.');
+if (!flag('force') && ((saved.HOST && bind !== saved.HOST) || (saved.PORT && Number(saved.PORT) !== port) ||
+  (saved.PUBLIC_URL && url.origin !== new URL(saved.PUBLIC_URL).origin))) {
+  die('기존 수신 주소 또는 공개 주소가 다릅니다. 변경하려는 경우 현재 설치의 .env를 확인하세요.');
+}
 const requestedDb = opt('database-url');
 if (requestedDb && saved.DATABASE_URL && requestedDb !== saved.DATABASE_URL && !flag('force')) {
   die('기존 DATABASE_URL이 새 주소와 다릅니다. DB를 전환하려면 .env에서 DATABASE_URL을 먼저 갱신하세요.');
 }
 const customDb = requestedDb || (externalDatabase ? saved.DATABASE_URL : undefined);
-if (customDb) { try { new URL(customDb); } catch { die('--database-url 이 올바르지 않습니다 (예: postgresql://사용자:비밀번호@호스트:5432/데이터베이스)'); } }
+if (customDb && !databaseAddress(customDb)) die('--database-url에 유효한 PostgreSQL 호스트와 데이터베이스 이름을 입력하세요.');
+if (!customDb && pgPort === port) die('전용 PostgreSQL 포트와 API 포트는 달라야 합니다.');
+const apiUnit = `${prefix}-api.service`;
+if (flag('services')) assertUnitOwnership(root, prefix, apiUnitNames(prefix));
+const otherRoot = unitOwner(servicePrefix(instance === 'http' ? 'default' : 'http'));
+if (otherRoot && otherRoot !== root) {
+  const other = readInstallation(otherRoot);
+  if (!customDb && !other.externalDatabase && pgPort === other.pgPort) die('다른 검수핀 설치가 같은 전용 PostgreSQL 포트를 사용합니다.');
+  const currentDb = databaseAddress(customDb);
+  const otherDb = databaseAddress(other.env.DATABASE_URL);
+  if (currentDb && otherDb && currentDb.port === otherDb.port && currentDb.host === otherDb.host && currentDb.name === otherDb.name) {
+    die('다른 검수핀 설치와 같은 PostgreSQL 데이터베이스를 사용할 수 없습니다.');
+  }
+  if (resolve(root, saved.DATA_DIR || 'data') === resolve(otherRoot, other.env.DATA_DIR || 'data')) die('다른 설치와 DATA_DIR을 공유할 수 없습니다.');
+}
 console.log(`  주소 ${url.origin} (포트 ${port}, 바인드 ${bind}) ✓`);
 if (url.protocol === 'http:') console.log('  http 로 운영합니다: 검수할 사이트도 http 여야 합니다(https 사이트에서는 브라우저가 http 검수핀을 막습니다).');
 
@@ -65,8 +108,14 @@ if (!customDb && !existsSync(join(PG_BIN, 'initdb'))) {
 }
 if (!customDb) console.log(`  PostgreSQL ${PG_BIN} ✓ (전용 클러스터를 data/postgres 에 만듭니다)`);
 
-const portFree = await new Promise((ok) => { const s = net.createServer(); s.once('error', () => ok(false)); s.listen(port, bind, () => s.close(() => ok(true))); });
-if (!portFree) console.log(`  ⚠ ${bind}:${port} 를 이미 다른 프로그램이 쓰고 있습니다. (이미 검수핀이 떠 있는 재실행이면 괜찮습니다)`);
+const ownApi = unitOwner(prefix) === root && spawnSync('systemctl', ['--user', 'is-active', '--quiet', apiUnit]).status === 0;
+const portError = await new Promise((finish) => { const s = net.createServer(); s.once('error', finish); s.listen(port, bind, () => s.close(() => finish(null))); });
+if (portError) {
+  if (portError.code !== 'EADDRINUSE' || !ownApi || saved.HOST !== bind || Number(saved.PORT) !== port) {
+    die(`API 수신 주소 ${bind}:${port}를 사용할 수 없습니다 (${portError.code}).`);
+  }
+  console.log(`  ${bind}:${port} 에서 ${apiUnit}이 이미 실행 중입니다.`);
+}
 else console.log(`  포트 ${port} 비어 있음 ✓`);
 
 const run = (cmd, args, extra = {}) => {
@@ -97,7 +146,10 @@ set('HOST', bind);
 set('PUBLIC_URL', url.origin);
 set('ALLOWED_HOSTS', [...new Set([url.host, `127.0.0.1:${port}`, `localhost:${port}`])].join(','));
 set('DATA_DIR', './data');
+set('GP_INSTANCE', instance, { replace: true });
+set('GP_PG_PORT', String(pgPort), { replace: true });
 set('GP_DATABASE_MODE', customDb ? 'external' : 'dedicated', { replace: true });
+if (opt('peer-url') !== undefined) set('PEER_REVIEW_URL', peer ?? '', { replace: true });
 if (process.env.PG_BIN) set('PG_BIN', PG_BIN, { replace: true });
 set('AUTH_SECRET', rand(48), { secret: true });
 set('IMAGE_PROXY_ENABLED', 'true');
@@ -116,15 +168,14 @@ if (!customDb) {
 if (flag('services')) {
   step('systemd 사용자 서비스 설치·시작');
   // pg:init 이 pg_ctl 로 띄운 PostgreSQL 은 systemd 밖의 프로세스다. 그대로 두면 geomsupin-db 서비스가 같은 데이터 폴더를 못 잡고 재시작을 반복하고, 묶인 api 도 같이 내려간다.
-  if (!customDb && spawnSync('systemctl', ['--user', 'is-active', '--quiet', 'geomsupin-db.service']).status !== 0) {
+  if (!customDb && spawnSync('systemctl', ['--user', 'is-active', '--quiet', `${prefix}-db.service`]).status !== 0) {
     run(process.execPath, ['scripts/pg.mjs', 'stop'], { env: { ...process.env, PG_BIN } });
   }
   run(process.execPath, ['scripts/install-services.mjs', '--enable', ...(customDb ? ['--no-db'] : [])], { env: { ...process.env, PG_BIN } });
+  if (ownApi && (flag('force') || peerChanged)) run('systemctl', ['--user', 'restart', apiUnit]);
   const settings = {};
   loadEnvFile(envPath, settings);
-  const listenHost = settings.HOST === '::' ? '::1' : settings.HOST === '0.0.0.0' ? '127.0.0.1' : settings.HOST;
-  const hostname = net.isIPv6(listenHost) ? `[${listenHost}]` : listenHost;
-  const endpoint = `http://${hostname}:${settings.PORT}/healthz`;
+  const endpoint = `${apiOrigin(settings.HOST, settings.PORT)}/healthz`;
   const host = new URL(settings.PUBLIC_URL).host;
   // The API starts listening after all pending database migrations finish.
   const startupTimeoutMs = 180_000;
@@ -138,9 +189,9 @@ if (flag('services')) {
     } catch { /* DB와 API 프로세스의 초기화가 끝나기를 기다린다. */ }
     if (!healthy) await delay(500);
   } while (!healthy && Date.now() < deadline);
-  if (!healthy) die(`API가 ${startupTimeoutMs / 60_000}분 안에 준비되지 않았습니다. journalctl --user -u geomsupin-api -n 50 으로 서비스 로그를 확인하세요.`);
+  if (!healthy) die(`API가 ${startupTimeoutMs / 60_000}분 안에 준비되지 않았습니다. journalctl --user -u ${apiUnit} -n 50 으로 서비스 로그를 확인하세요.`);
   console.log('  API와 DB 연결 확인 ✓');
-}
+} else if (ownApi && peerChanged) run('systemctl', ['--user', 'restart', apiUnit]);
 
 if (flag('issue-admin')) run('npm', ['run', 'manage']);
 console.log(`

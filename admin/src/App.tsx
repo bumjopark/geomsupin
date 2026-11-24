@@ -1,3 +1,4 @@
+import { InstallationNotice, InstallationProvider } from './Installation.tsx';
 import { useLocale } from './locale.tsx';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -30,7 +31,7 @@ consumeManagementLink();
 window.addEventListener('hashchange', consumeManagementLink);
 
 export function App() {
-  return <ToastProvider><Root /></ToastProvider>;
+  return <InstallationProvider><ToastProvider><Root /></ToastProvider></InstallationProvider>;
 }
 
 function Root() {
@@ -158,6 +159,7 @@ function BackupNotice() {
 function Header({ me, onLogout }: { me?: Me; onLogout?: () => void }) {
   const { locale, setLocale, t } = useLocale();
   return (
+    <>
     <header className="top">
       <div className="top-in">
         <Link to="/sites" className="brand"><PinIcon /><span className="brand-name">{t("검수핀")}</span></Link>
@@ -175,5 +177,7 @@ function Header({ me, onLogout }: { me?: Me; onLogout?: () => void }) {
         )}
       </div>
     </header>
+    <InstallationNotice />
+    </>
   );
 }

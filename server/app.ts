@@ -82,6 +82,7 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
     await ctx.sql`select 1`;
     return { ok: true };
   });
+  app.get('/api/installation', async () => ({ peerReviewUrl: config.peerReviewUrl }));
 
   // ── 에이전시 API (쿠키 인증) ──
   await app.register(managementRoutes(ctx), { prefix: '/api/manage' });

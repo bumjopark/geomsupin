@@ -1,4 +1,5 @@
 import { loadEnvFile } from '../shared/env-file.mjs';
+import { peerReviewOrigin } from '../shared/installation-peer.mjs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -11,6 +12,7 @@ const schema = z.object({
   PORT: z.coerce.number().int().default(8200),
   HOST: z.string().default('127.0.0.1'),
   PUBLIC_URL: z.string().url(),
+  PEER_REVIEW_URL: z.string().optional(),
   ALLOWED_HOSTS: z.string().default(''),
   DATABASE_URL: z.string().min(1),
   DATA_DIR: z.string().default('./data'),
@@ -41,6 +43,7 @@ export function buildConfig(env: NodeJS.ProcessEnv = process.env) {
     host: c.HOST,
     publicUrl: c.PUBLIC_URL.replace(/\/$/, ''),
     publicOrigin: publicUrl.origin,
+    peerReviewUrl: peerReviewOrigin(c.PUBLIC_URL, c.PEER_REVIEW_URL),
     secureCookies: publicUrl.protocol === 'https:',
     allowedHosts: hosts,
     databaseUrl: c.DATABASE_URL,

@@ -1,6 +1,14 @@
 import { reviewTerm, type Locale } from '../../shared/locale.ts';
 
 const english: Record<string, string> = {
+  "검수핀 접속 방식": "Geomsupin connection",
+  "HTTP 사이트용 검수핀": "Geomsupin for HTTP sites",
+  "HTTPS 사이트용 검수핀": "Geomsupin for HTTPS sites",
+  "HTTP 사이트용 검수핀 열기": "Open Geomsupin for HTTP sites",
+  "HTTPS 사이트용 검수핀 열기": "Open Geomsupin for HTTPS sites",
+  "HTTP에서는 초대 링크·댓글·캡처가 암호화 없이 전송됩니다.": "On HTTP, invitation links, comments, and screenshots are sent without encryption.",
+  "두 입구의 프로젝트와 초대 링크는 별도로 관리됩니다.": "Projects and invitations are separate on the two entrances.",
+  "이 주소는 다른 입구에서 검수할 수 있어요. 그곳에서 프로젝트를 만들고 주소를 연결하세요.": "Use the other entrance to review this address. Create a project and connect the address there.",
   "관리 세션을 확인하지 못했어요": "Could not check your manager session.",
   "로그아웃하지 못했어요": "Could not sign out.",
   "페이지를 찾을 수 없어요": "Page not found",
@@ -240,8 +248,8 @@ const english: Record<string, string> = {
   "관리 링크가 만료됐거나 이미 사용됐어요": "This manager link has expired or has already been used.",
   "프로젝트 이름을 입력해 주세요": "Enter a project name.",
   "프로젝트를 찾을 수 없습니다": "Project not found.",
-  "HTTP 페이지는 전송 중 변경될 수 있어 검수 권한과 캡처를 보호할 수 없어요. 사이트의 HTTPS 주소를 입력해 주세요.": "HTTP pages can be altered in transit, which puts review credentials and screenshots at risk. Enter the site's HTTPS address.",
-  "HTTPS 사이트에서는 브라우저가 HTTP 검수핀 로드를 차단해요. 검수핀을 HTTPS로 설정해 주세요.": "Browsers block Geomsupin over HTTP on HTTPS sites. Set up Geomsupin with HTTPS.",
+  "HTTP 주소는 HTTP 사이트용 검수핀에 등록해 주세요. 팀에 HTTP 입구가 없다면 설치 관리자에게 요청하세요.": "Register this URL in Geomsupin for HTTP sites. Ask your administrator to set up an HTTP installation if your team needs one.",
+  "HTTPS 주소는 HTTPS 사이트용 검수핀에 등록해 주세요. 팀에 HTTPS 입구가 없다면 설치 관리자에게 요청하세요.": "Register this URL in Geomsupin for HTTPS sites. Ask your administrator to set up an HTTPS installation if your team needs one.",
   "검수핀과 다른 출처의 사이트 주소를 입력해 주세요.": "Enter a site address on an origin other than Geomsupin’s.",
   "링크를 찾을 수 없습니다": "Link not found.",
   "요청을 찾을 수 없습니다": "Request not found.",

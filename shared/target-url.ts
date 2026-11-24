@@ -23,8 +23,8 @@ export function parseTargetUrl(raw: string): TargetUrlResult {
 
 export function reviewProtocolIssue(appProtocol: string, targetProtocol: string): string | undefined {
   if (appProtocol === targetProtocol) return;
-  if (targetProtocol === 'http:') return 'HTTP 페이지는 전송 중 변경될 수 있어 검수 권한과 캡처를 보호할 수 없어요. 사이트의 HTTPS 주소를 입력해 주세요.';
-  return 'HTTPS 사이트에서는 브라우저가 HTTP 검수핀 로드를 차단해요. 검수핀을 HTTPS로 설정해 주세요.';
+  if (targetProtocol === 'http:') return 'HTTP 주소는 HTTP 사이트용 검수핀에 등록해 주세요. 팀에 HTTP 입구가 없다면 설치 관리자에게 요청하세요.';
+  return 'HTTPS 주소는 HTTPS 사이트용 검수핀에 등록해 주세요. 팀에 HTTPS 입구가 없다면 설치 관리자에게 요청하세요.';
 }
 
 /** 저장돼 있던 값을 화면·링크에 내보내기 전에 한 번 더 거른다. 안전하지 않으면 ''(없음). */

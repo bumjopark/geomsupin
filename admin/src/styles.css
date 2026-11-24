@@ -30,6 +30,13 @@ h2 { font-size: 19px; letter-spacing: -.025em; } h3 { font-size: 15px; }
 /* 상단 */
 .top { position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--line); }
 .top-in { max-width: var(--content-width); margin: auto; padding: 0 var(--page-gutter); height: 60px; display: flex; align-items: center; gap: 15px; }
+.review-entry { background: var(--card); border-bottom: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+.review-entry-http { background: #fff8e8; color: #69491c; border-color: #ead8b5; }
+.review-entry-in { max-width: var(--content-width); margin: auto; padding: 9px var(--page-gutter); display: flex; flex-wrap: wrap; column-gap: 16px; row-gap: 4px; align-items: baseline; }
+.review-entry-in strong { color: var(--ink); }
+.review-entry-link { color: inherit; text-decoration: underline; text-underline-offset: .16em; font-weight: 650; }
+.review-entry-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
 .brand { display: inline-flex; align-items: center; flex: none; gap: 9px; font-weight: 800; font-size: 18px; color: var(--ink); letter-spacing: -.04em; }
 .brand:hover { text-decoration: none; }
 .brand i { width: 30px; height: 30px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; }
