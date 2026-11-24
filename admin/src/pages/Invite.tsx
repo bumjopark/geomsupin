@@ -1,3 +1,4 @@
+import { InstallationNotice } from '../Installation.tsx';
 import { useLocale } from '../locale.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -19,10 +20,10 @@ const CLOSED = {
 
 function InviteNotice({ title, description, retry = false }: { title: string; description: string; retry?: boolean }) {
   const { t } = useLocale();
-  return <main className="page narrow"><div className="card empty">
+  return <><InstallationNotice /><main className="page narrow"><div className="card empty">
     <h1>{title}</h1><p className="muted">{description}</p>
     {retry && <button className="btn primary" onClick={() => window.location.reload()}>{t("미리보기 다시 연결")}</button>}
-  </div></main>;
+  </div></main></>;
 }
 
 export function InvitePage() {
@@ -93,7 +94,7 @@ function Invite({ token }: { token: string }) {
     };
   }, [token]);
 
-  if (!data) return <Spinner />;
+  if (!data) return <><InstallationNotice /><Spinner /></>;
   if (data === 'missing') return <InviteNotice title={t("초대 링크를 찾을 수 없어요")} description={t("주소가 잘리지 않았는지 확인해 주세요.")} />;
   if (data === 'error') return <InviteNotice title={t("초대를 불러오지 못했어요")} description={t("연결을 확인한 뒤 다시 시도해 주세요.")} retry />;
   if (data.state !== 'ok') {
@@ -114,7 +115,7 @@ function Invite({ token }: { token: string }) {
         onUnavailable={recheckShare} onReconnect={() => { recheckShare(); setPreviewAttempt(attempt => attempt + 1); }} />
     </main>
   );
-  return <main className="page invite-page">
+  return <><InstallationNotice /><main className="page invite-page">
     <header className="invite-heading">
       <p className="eyebrow"><Icon name="pin" /> {t("검수 초대")}</p>
       <h1>{data.project}</h1>
@@ -124,5 +125,5 @@ function Invite({ token }: { token: string }) {
       <button type="button" className="btn ghost sm" onClick={() => setShowPreview(true)}><Icon name="window" /> {t("브라우저에서 미리보기")}</button>
       <CopyButton className="btn ghost sm invite-copy" text={window.location.href} label={t("초대 링크 복사")} />
     </div>
-  </main>;
+  </main></>;
 }

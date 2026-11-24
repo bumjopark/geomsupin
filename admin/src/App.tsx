@@ -37,7 +37,7 @@ export function App() {
 function Root() {
   const loc = useLocation();
   if (/^\/r\/[^/]+/.test(loc.pathname)) {
-    return <><Header /><Routes><Route path="/r/:token" element={<InvitePage />} /></Routes></>;
+    return <><Header showInstallation={false} /><Routes><Route path="/r/:token" element={<InvitePage />} /></Routes></>;
   }
   return <Management />;
 }
@@ -156,7 +156,7 @@ function BackupNotice() {
     <b>{t("자동 백업을 확인해 주세요.")}</b> {state === 'failed' ? t("최근 자동 백업을 완료하지 못했습니다.") : t("36시간 넘게 자동 백업이 완료되지 않았습니다.")} {t("서버 관리자에게 확인을 요청해 주세요.")} </div></div>;
 }
 
-function Header({ me, onLogout }: { me?: Me; onLogout?: () => void }) {
+function Header({ me, onLogout, showInstallation = true }: { me?: Me; onLogout?: () => void; showInstallation?: boolean }) {
   const { locale, setLocale, t } = useLocale();
   return (
     <>
@@ -177,7 +177,7 @@ function Header({ me, onLogout }: { me?: Me; onLogout?: () => void }) {
         )}
       </div>
     </header>
-    <InstallationNotice />
+    {showInstallation && <InstallationNotice />}
     </>
   );
 }

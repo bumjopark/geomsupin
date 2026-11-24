@@ -65,6 +65,7 @@ for (const engine of ['chromium', 'firefox', ...(process.env.PLAYWRIGHT_EDGE_EXE
       await seedReviewer(t, context, site.widgetKey, token, stage, '김검수');
       const page = new ReviewBrowser(await context.newPage(), site.links[0].shareUrl);
       await page.goto();
+      await expect(page.page.getByRole('complementary', { name: '검수핀 접속 방식' })).toHaveCount(0);
       await compose(page, kind === 'native' ? '#native-target' : kind === 'shadow' ? '#shadow-target' : '#target');
       const input = page.getByRole('textbox', { name: '요청 내용', exact: true });
       await input.click();
