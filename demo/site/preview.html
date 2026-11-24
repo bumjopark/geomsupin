@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>스테이징 미리보기 연습</title>
+  <style>
+    body { margin: 32px; font: 16px/1.5 system-ui, sans-serif; color: #182133; background: #f3f5fa; }
+    .choices { display: flex; flex-wrap: wrap; gap: 16px; }
+    .choices button { width: 140px; height: 56px; border: 0; border-radius: 8px; color: white; font: inherit; cursor: pointer; }
+    #reserve { background: #d02f2f; }
+    #details { background: #2563eb; }
+    #contact { background: #16804a; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>봄 워크숍 신청</h1>
+    <p>일정을 확인하고 참여할 날짜를 골라 주세요.</p>
+    <div class="choices">
+      <button id="reserve" type="button">예약하기</button>
+      <button id="details" type="button">일정 보기</button>
+      <button id="contact" type="button">문의하기</button>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,123 @@
+.btn.tutorial-button {
+  flex: none;
+  min-height: 38px;
+  padding-inline: 11px;
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+}
+
+.btn.tutorial-button:hover {
+  background: var(--brand-d);
+}
+
+.tutorial-button svg,
+.tutorial-poster-label svg {
+  flex: none;
+}
+
+.tutorial-poster {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+}
+
+.tutorial-poster img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.tutorial-poster-label {
+  position: absolute;
+  inset: auto auto clamp(12px, 2vw, 20px) clamp(12px, 2vw, 20px);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  min-height: 44px;
+  border: 1px solid #fff8;
+  border-radius: 9px;
+  background: var(--brand-d);
+  font-weight: 750;
+}
+
+.tutorial-poster:hover .tutorial-poster-label {
+  background: var(--brand);
+}
+
+.tutorial-dialog {
+  width: min(960px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: clamp(12px, 2.8vw, 22px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.tutorial-dialog::backdrop {
+  background: rgba(16, 30, 26, .78);
+}
+
+body:has(.tutorial-dialog[open]) {
+  overflow: hidden;
+}
+
+.tutorial-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tutorial-dialog-heading h2 {
+  font-size: clamp(16px, 3.5vw, 21px);
+}
+
+.btn.tutorial-close {
+  min-height: 44px;
+}
+
+.tutorial-video {
+  display: block;
+  width: 100%;
+  max-height: calc(100dvh - 120px);
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: #121918;
+  object-fit: contain;
+}
+
+.tutorial-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.tutorial-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+}
+
+@media (max-width: 420px) {
+  .btn.tutorial-button {
+    gap: 4px;
+    padding-inline: 8px;
+  }
+}

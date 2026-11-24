@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>웹앱 데모(SPA) · 한결 스튜디오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="./">한결<b>스튜디오</b></a>
+  <nav id="spa-nav">
+    <a href="app.html" data-route="app.html">대시보드</a>
+    <a href="app.html?tab=orders" data-route="app.html?tab=orders">주문 목록</a>
+    <a href="app.html?tab=settings" data-route="app.html?tab=settings">설정</a>
+  </nav>
+</header>
+<main class="wrap"><h2 id="spa-title"></h2><div id="spa-body"></div></main>
+<script>
+// pushState 기반의 한 페이지 앱: 주소가 바뀌어도 페이지는 새로 로드되지 않는다.
+(function () {
+  var pages = {
+    '': ['대시보드', '<div class="cards"><div class="card"><h3>오늘 방문</h3><p>1,284명</p></div><div class="card"><h3>신규 문의</h3><p>12건</p></div><div class="card"><h3>진행 프로젝트</h3><p>7개</p></div></div>'],
+    orders: ['주문 목록', '<table style="width:100%;border-collapse:collapse"><tr><td style="padding:8px;border-bottom:1px solid #eee">#1024</td><td style="padding:8px;border-bottom:1px solid #eee">브랜드 디자인</td><td style="padding:8px;border-bottom:1px solid #eee">진행 중</td></tr><tr><td style="padding:8px;border-bottom:1px solid #eee">#1023</td><td style="padding:8px;border-bottom:1px solid #eee">홈페이지 제작</td><td style="padding:8px;border-bottom:1px solid #eee">완료</td></tr></table>'],
+    settings: ['설정', '<form class="form" onsubmit="return false"><label>회사명 <input value="한결 스튜디오"></label><label>새 비밀번호 <input type="password" value="hunter2hunter2"></label><button class="btn">저장</button></form>']
+  };
+  function render() {
+    var tab = new URLSearchParams(location.search).get('tab') || '';
+    var p = pages[tab] || pages[''];
+    document.getElementById('spa-title').textContent = p[0];
+    document.getElementById('spa-body').innerHTML = p[1];
+  }
+  document.getElementById('spa-nav').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-route]');
+    if (!a) return;
+    e.preventDefault();
+    history.pushState({}, '', a.getAttribute('data-route'));
+    render();
+  });
+  window.addEventListener('popstate', render);
+  render();
+})();
+</script>
+</body>
+</html>

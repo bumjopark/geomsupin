@@ -1,0 +1,163 @@
+import type { Locale } from '../shared/locale.ts';
+
+const english = {
+  "요청을 처리하지 못했어요": "Could not complete the request.",
+  "방금 전": "Just now",
+  "예: 김디자인": "e.g. Alex",
+  "내 별명": "My name",
+  "별명을 입력해 주세요": "Enter a name.",
+  "별명을 저장하지 못했어요": "Could not save your name.",
+  "별명 바꾸기": "Change name",
+  "별명을 알려 주세요": "Enter your name",
+  "저장": "Save",
+  "확인": "OK",
+  "댓글과 변경 기록에 이름이 함께 보여요. 가입은 필요 없어요.": "Your name appears with your comments and changes. No account is needed.",
+  "취소": "Cancel",
+  "요청 남기기": "Leave a request",
+  "새 소식이 있어요": "New activity",
+  "모두의 요청": "All requests",
+  "조건에 맞는 요청이 없어요.": "No requests match this filter.",
+  "아직 요청이 없어요.": "No requests yet.",
+  "다른 탭을 눌러 보세요.": "Try another tab.",
+  "“요청 남기기”를 누르고 고칠 곳을 콕 찍어 보세요.": "Select “Leave a request,” then click where a change is needed.",
+  "위치 못 찾음": "Position not found",
+  "완료 숨기기": "Hide resolved",
+  "닫기": "Close",
+  "이 페이지": "This page",
+  "전체": "All",
+  "내 것": "Mine",
+  "이름은 처음 요청이나 댓글을 남길 때 물어볼게요": "We’ll ask for your name when you leave your first request or comment.",
+  "별명을 바꿨어요": "Your name was updated.",
+  "답글을 남겨 보세요": "Write a reply",
+  "댓글": "Comment",
+  "보내기": "Send",
+  "새 댓글 ↓": "New comments ↓",
+  "대화": "Conversation",
+  "댓글을 남기지 못했어요": "Could not send your comment.",
+  "불러오는 중…": "Loading…",
+  "이 요청은 지워졌어요": "This request was deleted.",
+  "불러오지 못했어요. 잠시 뒤에 다시 열어 주세요.": "Could not load this request. Try again in a moment.",
+  "해결로 표시했어요 ✅ 모두에게 보여요": "Marked as resolved ✅ Everyone can see the change.",
+  "다시 열었어요": "Reopened.",
+  "상태를 바꾸지 못했어요": "Could not change the status.",
+  "↩︎ 다시 열기": "↩︎ Reopen",
+  "✅ 해결": "✅ Resolve",
+  "더 보기": "More options",
+  "상태": "Status",
+  "이 요청을 지울까요? 캡처와 댓글도 함께 지워져요.": "Delete this request and its screenshots and comments?",
+  "요청을 지웠어요": "Request deleted.",
+  "지우지 못했어요": "Could not delete the request.",
+  "지우기": "Delete",
+  "아니요": "No",
+  "내용 고치기": "Edit request",
+  "지금": "Current",
+  "이렇게": "Proposed",
+  "위치 변경 전후 비교": "Compare current and proposed positions",
+  "현재 화면": "Current view",
+  "제안 화면": "Proposed view",
+  "제안된 위치의 화면": "Screenshot of the proposed position",
+  "담당자 메모 ": "Team note: ",
+  "이전 대화를 불러오지 못했어요": "Could not load earlier comments.",
+  "이전 대화 보기": "Show earlier comments",
+  "담당자": "Team member",
+  "첫 답글을 남겨 보세요. 같은 핀을 보는 모두에게 바로 보여요.": "Leave the first reply. Everyone reviewing this pin can see it.",
+  "요청 내용 수정": "Edit request",
+  "내용을 고쳤어요": "Request updated.",
+  "고치지 못했어요": "Could not update the request.",
+  "요청 당시 화면": "Screenshot attached to the request",
+  "이 사이트에서는 캡처 이미지를 바로 보여 줄 수 없어요. 담당자 화면에서는 볼 수 있어요.": "This site blocks the screenshot preview. You can view it in the management app.",
+  "누군가": "Someone",
+  "새 댓글": "New comment",
+  "다시 연결됐어요 👍": "Reconnected 👍",
+  "검수핀 서버와 연결이 끊겼어요. 자동으로 다시 시도하고 있어요": "Lost connection to the Geomsupin server. Retrying automatically.",
+  "이 프로젝트의 검수가 종료됐거나 삭제됐어요. 팀장에게 확인해 주세요.": "This project was closed or deleted. Contact your project lead.",
+  "이 링크는 더 이상 쓸 수 없어요. 링크를 보내 준 분께 새 링크를 요청해 주세요.": "This link is no longer available. Ask the sender for a new one.",
+  "검수가 마무리되었거나 링크가 닫혔어요": "The review has ended or the link was closed.",
+  "가림 영역": "Masked area",
+  "취소 (Esc)": "Cancel (Esc)",
+  "무엇을 어떻게 고치면 좋을까요?": "What would you like changed?",
+  "요청 내용": "Request details",
+  "지금 (AS-IS)": "Current (as-is)",
+  "이렇게 (TO-BE)": "Proposed (to-be)",
+  "화면을 캡처하는 중…": "Capturing the screen…",
+  "남기기": "Submit",
+  "고치기 전/후로 나눠 쓰기": "Describe current and proposed separately",
+  "제안할 위치": "Proposed position",
+  "옮길 위치 선택": "Choose a new position",
+  "제안 미리보기": "Preview proposal",
+  "화면에서 끌기": "Drag on the page",
+  "위치 변경 제안": "Suggest a new position",
+  "제안 화면을 만드는 중…": "Preparing the proposed view…",
+  "현재 화면을 캡처할 수 없어요. 위치 변경 제안을 닫고 일반 요청을 남길 수 있어요.": "Could not capture the current view. Close the position proposal to leave a regular request.",
+  "제안 화면을 캡처할 수 없어요. 화면을 확인하고 다시 시도해 주세요.": "Could not capture the proposed view. Check the page and try again.",
+  "제안 화면 미리보기": "Preview of the proposed view",
+  "나눠 쓰기 끄기": "Use a single description",
+  "위치 변경 제안에는 현재 화면 캡처가 필요해요": "A position proposal needs a screenshot of the current view.",
+  "캡처 건너뛰고 남기기": "Submit without a screenshot",
+  "화면 캡처에 실패했어요. 캡처 없이 저장돼요.": "Could not capture the screen. The request will be saved without a screenshot.",
+  "이 사이트에서는 화면 캡처를 불러오지 못했어요. 캡처 없이 저장돼요.": "Screen capture is unavailable on this site. The request will be saved without a screenshot.",
+  "캡처 미리보기": "Screenshot preview",
+  "📍 요청 남기기": "📍 Leave a request",
+  "별명 ": "Name ",
+  "(함께 보는 분들께 표시돼요)": "(visible to other reviewers)",
+  "Enter 남기기 · Shift+Enter 줄바꿈": "Enter to submit · Shift+Enter for a new line",
+  "쓰던 글이 있어요. 닫으려면 ✕ 를 눌러 주세요": "You have unsaved text. Select ✕ to close.",
+  "옮길 위치를 선택하고 제안 미리보기를 확인해 주세요": "Choose a new position and preview your proposal.",
+  "별명을 알려 주세요. 누가 남겼는지 함께 보는 분들께 보여 줘요": "Enter your name so other reviewers know who left this request.",
+  "내용을 입력해 주세요": "Enter a description.",
+  "남기는 중…": "Submitting…",
+  "남기지 못했어요. 잠시 뒤에 다시 해 주세요": "Could not submit the request. Try again in a moment.",
+  "페이지를 새로고침한 뒤 북마크를 다시 눌러 주세요.": "Refresh the page, then click the bookmark again.",
+  "선택한 요소를 같은 묶음의 다른 요소까지 끌어 놓으세요.": "Drag the selected item onto another item in the same group.",
+  "끌기 취소": "Cancel drag",
+  "같은 묶음의 다른 요소 위에 놓으세요.": "Drop onto another item in the same group.",
+  "접수 상태로 되돌렸어요": "set the status back to Open.",
+  "진행 중으로 바꿨어요": "set the status to In progress.",
+  "완료로 표시했어요 ✅": "marked it as resolved ✅",
+  "다시 열었어요 (재발생)": "reopened this request.",
+  "보류로 바꿨어요": "put this request on hold.",
+} as const;
+
+export type WidgetLabel = keyof typeof english;
+
+export function widgetText(locale: Locale, label: WidgetLabel): string {
+  return locale === 'en' ? english[label] : label;
+}
+
+export function systemComment(locale: Locale, body: string): string {
+  switch (body) {
+    case '접수 상태로 되돌렸어요':
+    case '진행 중으로 바꿨어요':
+    case '완료로 표시했어요 ✅':
+    case '다시 열었어요 (재발생)':
+    case '보류로 바꿨어요':
+      return widgetText(locale, body);
+    default:
+      return body;
+  }
+}
+
+const apiErrors: Readonly<Record<string, string>> = {
+  bad_image: 'The screenshot could not be used.',
+  bad_key: 'This project key is invalid.',
+  daily_limit: 'This project has reached its daily request limit.',
+  invalid: 'Check the values you entered and try again.',
+  invalid_proposal: 'Save both the current screenshot and a complete position proposal.',
+  link_invalid: 'This invitation is invalid or has been closed.',
+  name_required: 'Enter your name.',
+  no_session: 'This review session is no longer active.',
+  not_found: 'This request is no longer available.',
+  not_yours: 'Only the author can edit or delete this item.',
+  page_mismatch: 'This page is outside the connected site.',
+  preview_unavailable: 'The connected site is no longer available.',
+  server_error: 'The server could not complete the request. Try again in a moment.',
+  session_invalid: 'The review session has expired or the invitation was closed.',
+  too_large: 'The request is too large.',
+  too_many: 'Too many requests. Try again in a moment.',
+  unknown_key: 'This project is no longer available.',
+};
+
+export function widgetApiError(locale: Locale, code: string, message: unknown, fallback: WidgetLabel): string {
+  if (locale === 'en' && Object.hasOwn(apiErrors, code)) return apiErrors[code]!;
+  return locale === 'ko' && typeof message === 'string' ? message : widgetText(locale, fallback);
+}

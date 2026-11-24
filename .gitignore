@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+data/
+.tools/
+node_modules/
+dist/
+dist-*/
+test-results/
+.local/
+*.log
+
+initial_plan.md
