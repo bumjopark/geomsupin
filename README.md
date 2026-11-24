@@ -1,97 +1,94 @@
-# 검수핀
+# Geomsupin
 
-한국어 · [English](README.en.md)
+English · [한국어](README.ko.md)
 
-로그인한 사이트에서 고치고 싶은 곳을 클릭해 핀과 의견을 남기는 팀용 검수 도구입니다. 팀 서버에 설치하고 초대 링크를 공유하세요. 참여자는 평소 브라우저에 검수핀 북마크를 저장하면 됩니다.
+Leave Figma-style feedback on the website you're building. A designer can pin a comment to a button on a signed-in checkout page, and a developer can see the screenshot, reply, and mark the issue resolved in the same thread. Host Geomsupin on your team's server and share an invitation. Reviewers use their usual desktop browser and keep their existing sign-in on the site.
 
-**1분 사용법 · 프로젝트 만들기부터 팀원의 핀에 답글 달기까지**
+**One-minute walkthrough · Create a project, invite a teammate, and reply to their pin**
 
 https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
 
-[MP4 영상](admin/public/tutorial/review-guide.mp4?raw=true) · [한국어 자막](admin/public/tutorial/review-guide.ko.vtt?raw=true) · [영어 자막](admin/public/tutorial/review-guide.en.vtt?raw=true) · [설치와 운영](deploy/onprem/README.md) · [화면으로 보는 사용법](docs/usage.md)
+[Download the MP4](admin/public/tutorial/review-guide.mp4?raw=true) · [English captions](admin/public/tutorial/review-guide.en.vtt?raw=true) · [Korean captions](admin/public/tutorial/review-guide.ko.vtt?raw=true)
 
-설치한 검수핀에서는 상단 **사용법 영상**을 누르면 한국어 자막을 켜거나 원하는 장면으로 이동할 수 있습니다.
+The video shows the Korean interface. In the app, select **EN** and open the tutorial for English captions and chapters. The illustrated guide includes the English button names. [User guide](docs/usage.en.md)
 
-## 1. 서버에 설치
+## 1. Install on your server
 
-Linux 서버의 일반 사용자 계정에 Git, Node.js **22.12 이상**, npm, PostgreSQL **16**을 준비합니다. 서버에서 `systemctl --user`를 사용할 수 있어야 합니다. 도구 설치부터 필요한 포트까지 아래 문서에서 확인할 수 있습니다. [설치 준비](deploy/onprem/README.md#설치-전-준비)
+This setup serves Geomsupin at **`https://YOUR_SERVER_IP:3443`** on your team's network. Choose a stable IPv4 address that reviewers can reach and allow TCP port `3443` from their network. You need Linux with user systemd, Git, Node.js **22.12 or newer**, npm, PostgreSQL **16**, nginx, and OpenSSL. Run the commands as the Linux user who will own the service. [Ubuntu prerequisites and installation guide](deploy/onprem/README.md)
 
-GitHub의 **Code → HTTPS**에서 이 저장소 주소를 복사하고 서버의 Bash에서 실행합니다.
+```sh
+git clone https://github.com/bumjopark/geomsupin.git
+cd geomsupin
+npm ci --include=dev
+```
+
+In the same Bash session, enter the server's IPv4 address. The installer starts the API, database, and backup timer. The TLS helper starts nginx, which accepts HTTPS on `0.0.0.0:3443` and forwards requests to `http://127.0.0.1:3200`. For example, if the server's address is `192.168.1.50`, reviewers open `https://192.168.1.50:3443`.
 
 ```bash
-read -r -p 'GitHub에서 복사한 HTTPS 주소: ' GEOMSUPIN_REPO_URL
-git clone "$GEOMSUPIN_REPO_URL" geomsupin && cd geomsupin
+read -r -p 'Server IPv4 address reachable by reviewers: ' GEOMSUPIN_IP
+npm run onprem:setup -- --url "https://${GEOMSUPIN_IP}:3443" --bind 127.0.0.1 --port 3200 --services &&
+  node scripts/tls-setup.mjs --host "$GEOMSUPIN_IP" --port 3443 &&
+  curl --fail --show-error --cacert .local/tls/ca.crt "https://${GEOMSUPIN_IP}:3443/healthz"
 ```
 
-HTTPS 도메인과 리버스 프록시를 쓰는 예입니다. `review.example.com`을 실제 도메인으로 바꾸고 설치 폴더에서 실행합니다.
+Send the public certificate `.local/tls/ca.crt` to reviewers through a trusted channel. On each reviewer's computer, verify its SHA-256 fingerprint against the one the TLS helper printed, then trust the CA in the browser or operating system. Open `https://YOUR_SERVER_IP:3443/healthz` there. You should see `{"ok":true}` without a certificate warning. The site under review must also open over HTTPS on a different origin. Teams that prefer a domain manage their own DNS, certificate, and reverse proxy. [Certificate setup and operations](deploy/onprem/README.md)
+
+## 2. Open the administrator link
+
+On the server, run the following command from the checkout. On first use it creates a workspace with the name you provide.
 
 ```sh
-npm ci --include=dev
-npm run onprem:setup -- --url https://review.example.com --bind 127.0.0.1 --port 3200 --services
-curl --fail --show-error http://127.0.0.1:3200/healthz
+npm run manage -- --name "Our team"
 ```
 
-프록시에서 원래 `Host`와 함께 요청을 `127.0.0.1:3200`으로 전달합니다. 그다음 참여자 PC에서 `https://review.example.com/healthz`를 열어 `{"ok":true}`를 확인하세요. 검수핀과 검수할 사이트는 모두 참여자 PC에서 열려야 하고, 같은 프로토콜을 쓰는 서로 다른 출처여야 합니다. 도메인 없이 IP로 HTTPS를 쓰거나 사내 HTTP로만 운영할 수 있습니다. [프록시 설정과 IP HTTPS 설치](deploy/onprem/README.md#처음-설치)
+Open the printed link in the administrator's browser. It can be used once within 15 minutes. The secret disappears from the address bar after sign-in. Issuing a new link for the same workspace invalidates its earlier administrator link and sessions. For an installation with several workspaces, list them and choose the one to manage.
 
-## 2. 관리 링크 받기
-
-설치 서버에서 검수핀 실행 계정으로 아래 명령을 실행합니다. 첫 설치에서는 조직 이름으로 작업공간을 만듭니다.
-
-```sh
-npm run manage -- --name "우리 팀"
-```
-
-출력된 링크를 관리자 브라우저에서 여세요. 15분 안에 한 번 사용할 수 있고, 교환이 끝나면 주소창에서 비밀값이 사라집니다. 관리 화면에서 프로젝트, 초대 링크, 저장된 요청을 관리합니다. 같은 작업공간의 관리 링크를 다시 발급하면 이전 링크와 관리 세션은 만료됩니다.
-
-기존 설치를 업데이트하면 이전 프로젝트와 요청 기록이 이어집니다. 작업공간이 여러 개면 목록에서 관리할 곳을 고릅니다. 작업공간마다 관리 링크와 세션이 따로 발급됩니다.
-
-```sh
+```bash
 npm run manage -- --list
-read -r -p '작업공간 ID: ' GEOMSUPIN_WORKSPACE_ID
+read -r -p 'Workspace ID: ' GEOMSUPIN_WORKSPACE_ID
 npm run manage -- --workspace "$GEOMSUPIN_WORKSPACE_ID"
 ```
 
-## 3. 팀원 초대하기
+## 3. Invite your team
 
-1. **새 프로젝트**를 만들고 **설정 → 검수할 사이트**에 검수 대상 주소를 저장합니다.
-2. **참여자 초대하기 → 링크 복사**를 눌러 팀원에게 보냅니다. 참여자는 받은 주소를 바로 열거나 공개 첫 화면의 **초대 링크**에 붙여넣고 **초대 열기**를 누릅니다.
+1. Create a project. In **Settings → Review site**, save the URL you want to review.
+2. Under **Invite reviewers**, select **Copy link** and share it with your team. Each reviewer opens the invitation and drags their own project bookmark onto their desktop browser's bookmarks bar. **Can't drag the bookmark?** shows the manual steps.
 
-## 4. 첫 핀 남기기
+## 4. Leave the first pin
 
-1. PC에서 초대 화면의 **검수핀 · 프로젝트명**을 브라우저 주소창 아래 북마크바로 끌어 놓습니다. 북마크바가 숨겨져 있으면 안내된 단축키를 누릅니다. 키보드만 쓸 때는 **드래그가 안 되나요?**를 엽니다.
-2. 검수할 사이트를 일반 탭에서 열고 평소처럼 로그인합니다. 의견을 남길 페이지에서 저장한 북마크를 누릅니다.
-3. **요청 남기기**를 누르고 화면에서 위치를 고릅니다. 별명과 내용을 입력하고 **남기기**를 누릅니다.
+1. From the invitation, select **Open review site**, or switch to the tab where you already use the site. Sign in to the site as usual and click the saved bookmark.
+2. Select **Leave a request**, click the element you want to discuss, and enter your nickname and feedback. Check the screenshot preview and select **Submit**.
+3. A teammate can open the numbered pin and reply. In the administrator's **Requests** view, open the same request to see the screenshot, assign it, or update its status. **Export to Excel** downloads the filtered list with screenshots. [Illustrated user guide](docs/usage.en.md)
 
-관리자는 **요청**에서 캡처를 열어 보고 답글, 상태, 담당자를 관리할 수 있습니다. **엑셀로 받기**로 캡처가 포함된 요청 목록을 내려받습니다. [핀·대화·위치 변경 사용법](docs/usage.md)
+People invited to the same project can see its screenshots, page titles, and URLs. Use test data and avoid reviewing URLs that contain secrets. If the review site restricts external scripts or API connections, its administrator may need to allow the Geomsupin origin. [Sharing and bookmark troubleshooting](docs/usage.en.md)
 
-## 개발과 검증
+## Development and testing
+
+Prepare a development checkout using the installation steps above. The dedicated PostgreSQL installer creates a separate test database. For an external database, create a separate database whose name ends in `_test` and set `TEST_DATABASE_URL` in `.env`. Tests reset the schema in that database and write captures to a temporary directory.
 
 ```sh
-npm ci --include=dev
 npx playwright install chromium firefox
 npm run check
 ```
 
-`.env`에 운영 DB와 다른 `TEST_DATABASE_URL`을 지정합니다. 테스트 DB 이름은 `*_test`로 끝나야 합니다. 시험은 전용 스키마를 초기화하고 캡처를 임시 폴더에 저장합니다. `npm run check`는 타입 검사, 별도 폴더 빌드, Vitest, Playwright를 차례로 실행합니다. 기본 빌드 폴더는 `dist-test/`입니다. 브라우저 결과는 `test-results/report/`에 저장됩니다.
+The check runs TypeScript, builds the admin app and widget in `dist-test/`, then runs Vitest and Playwright. The browser report is in `test-results/report/`. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to use a particular Chromium build. Set `PLAYWRIGHT_EDGE_EXECUTABLE` to add Edge to the modal tests. With LibreOffice and `python3-uno` installed, `npm run test:spreadsheet` checks that screenshot links survive sorting, filtering, and resaving an export.
 
-| 경로 | 역할 |
+| Directory | What it contains |
 | --- | --- |
-| `admin/` | React 관리 화면, 공개 초대와 사용법 영상 |
-| `widget/` | 연결 스크립트, 핀·댓글·제안 UI, DOM 캡처 |
-| `server/` | Fastify API, PostgreSQL, 검수 세션·실시간 알림, 파일·엑셀·백업 |
-| `server/migrations/` | 번호순 SQL 이력 |
-| `shared/` | 상태·요청 종류·입력·브라우저 공통 코드 |
-| `demo/`, `tests/` | 별도 출처 스테이징, 단위·DB·브라우저 시나리오 |
-| `scripts/` | 빌드·설치·관리 링크·검증·운영 도구 |
+| `admin/` | React dashboard, reviewer invitations, and the tutorial player |
+| `widget/` | Bookmark and script entry points, pins, comments, layout proposals, and screenshot capture |
+| `server/` | Fastify API, PostgreSQL access, review sessions, live updates, files, Excel exports, and backups |
+| `server/migrations/` | Versioned SQL migrations |
+| `shared/` | Review types, browser and URL helpers, and shared validation |
+| `demo/`, `tests/` | Sample staging site and unit, database, and browser tests |
+| `scripts/` | Build, installation, administrator access, deployment, and recovery commands |
 
-`npm run check`에는 다른 출처에서의 초대·캡처 가림·동시 편집·모달·실시간 복구와 관리 세션·업그레이드·백업 회귀가 포함됩니다. `PLAYWRIGHT_CHROMIUM_EXECUTABLE`로 Chromium 계열 실행 파일을 지정할 수 있고, `PLAYWRIGHT_EDGE_EXECUTABLE`을 설정하면 모달 검증에 Edge를 추가할 수 있습니다. 별도 `npm run test:spreadsheet`는 LibreOffice와 `python3-uno`로 파일 정렬·필터·재저장 후 캡처 링크를 확인합니다.
+For the path from clicking a page element to receiving a team update, see the [architecture guide](docs/architecture.en.md).
 
-[구현 구조](docs/architecture.md)
+## Operations
 
-## 운영
+`npm run backup` saves the database, referenced captures, and installation configuration. Set `BACKUP_MIRROR_DIR` to keep another copy on a mounted volume. The operations guide covers service updates, restoration, and troubleshooting. [Installation and operations guide](deploy/onprem/README.md)
 
-`npm run backup`은 DB, 참조하는 캡처 파일, 설정을 함께 보존합니다. `BACKUP_MIRROR_DIR`에 외부 저장소 사본을 둘 수 있습니다. 서비스 업데이트와 복구 절차는 [설치와 운영](deploy/onprem/README.md)에 있습니다.
+## License
 
-## 라이선스
-
-검수핀 소스에는 MIT 라이선스를 적용합니다. 외부 패키지와 테스트 폰트는 각각의 원본 라이선스를 따릅니다. [MIT 라이선스 전문](LICENSE) · [테스트 폰트 고지](tests/fixtures/LICENSE.txt)
+Geomsupin is available under the MIT License. Third-party packages and the test font retain their own licenses. [MIT License](LICENSE) · [Test font notice](tests/fixtures/LICENSE.txt)

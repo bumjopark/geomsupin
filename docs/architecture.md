@@ -1,5 +1,7 @@
 # 검수핀 구현 구조
 
+한국어 · [English](architecture.en.md)
+
 검수핀은 조직이 운영하는 단일 Node.js 서버, PostgreSQL, 로컬 파일 저장소로 구성됩니다. 서버 한 곳에서 관리 화면, 초대 화면, 위젯 JavaScript, API, 캡처 파일을 제공합니다. 검수할 웹사이트는 팀이 운영하는 별도 출처에서 원래대로 서비스합니다.
 
 ```mermaid
@@ -24,11 +26,12 @@ flowchart LR
 
 ## 핀을 저장할 때
 
-
 1. 스테이징에서 로드된 위젯이 Shadow DOM에 도구 모음과 핀을 표시합니다. 사용자가 대상을 클릭하면 페이지 주소, DOM 선택자, 요소 안의 상대 위치, 화면 크기와 당시 보이는 화면을 수집합니다. [위젯](../widget/core.ts) · [위치 정보](../widget/env.ts)
 2. 캡처 모듈은 작성할 때 로드합니다. DOM 복제본에 가림 처리를 적용하고 화면 이미지를 만듭니다. 위치 변경 제안은 복제본에서만 형제 요소의 순서를 바꾸어 비교 이미지를 추가합니다. [캡처](../widget/capture.ts) · [위치 변경](../widget/position-proposal.ts)
 3. 서버는 이미지를 검증하고 Sharp로 다시 인코딩합니다. 파일 저장소에는 이미지 실체를, DB에는 파일 키와 요청을 저장합니다. 같은 제출을 재시도하면 요청 식별자로 중복을 방지합니다. 캡처를 읽을 때는 서버가 만료 시간이 있는 서명 URL을 발급합니다. [이미지 처리](../server/images.ts) · [파일 저장소](../server/storage.ts)
 4. 쓰기가 완료되면 서버가 같은 프로젝트의 열린 검수 세션에 SSE로 변경을 알립니다. 위젯은 현재 권한으로 목록이나 대화를 다시 읽습니다. 연결이 끊기면 재연결과 주기적 조회로 따라잡습니다. 관리 화면은 탭이 보일 때 목록을 주기적으로 갱신합니다. 실시간 알림의 구독 목록은 서버 프로세스 메모리에 있습니다. [서버 알림](../server/review-events.ts) · [브라우저 구독](../widget/review-events.ts)
+
+가림 처리는 `data-review-mask`가 지정된 영역과 비밀번호 등으로 식별된 일부 입력 요소에 적용됩니다. 가림 영역 안의 요소나 가림 영역을 포함하는 요소에 놓은 핀은 요소의 텍스트 힌트를 저장하지 않고 구조 선택자를 사용합니다. 페이지 제목과 주소의 경로·쿼리·일부 SPA 해시는 별도 요청 정보로 남을 수 있습니다. 이미 발급된 캡처 주소는 초대 링크를 폐기해도 서명이 만료될 때까지 사용할 수 있습니다. [가림 판정](../widget/privacy.ts) · [주소 정규화](../shared/constants.ts) · [파일 접근](../server/app.ts)
 
 ## 관리 화면과 운영 데이터
 
@@ -42,10 +45,10 @@ flowchart LR
 | [scripts](../scripts) | 설치, 관리 링크, 빌드, 배포, 백업 명령 |
 | [tests](../tests) | 실제 PostgreSQL을 쓰는 API·운영 검증과 여러 브라우저의 협업 검증 |
 
-빌드 결과는 `dist/admin/`과 `dist/widget/`에 생깁니다. 스테이징에 붙이는 작은 진입점은 `/w.js`이고 위젯 본체와 캡처 모듈의 파일명에는 내용 해시가 들어갑니다. 캡처 기본 경로는 `DATA_DIR/captures/`, 통합 백업 기본 경로는 `DATA_DIR/backups/`입니다. [설치와 운영](../deploy/onprem/README.md)
+빌드 결과는 `dist/admin/`과 `dist/widget/`에 생깁니다. 스테이징에 붙이는 작은 진입점은 `/w.js`이고 위젯 본체와 캡처 모듈의 파일명에는 내용 해시가 들어갑니다. 캡처 기본 경로는 `DATA_DIR/captures/`, 통합 백업 기본 경로는 `DATA_DIR/backups/`입니다. [설치와 운영](../deploy/onprem/README.ko.md)
 
 ## 사용법 영상
 
-관리 화면 빌드에 MP4, 한국어 WebVTT 자막, 포스터가 함께 들어갑니다. 서버는 `/tutorial/`에서 파일을 제공하며 브라우저는 재생할 때 필요한 구간을 요청합니다. [플레이어](../admin/src/Tutorial.tsx) · [영상과 자막](../admin/public/tutorial)
+관리 화면 빌드에 MP4, 한국어·영어 WebVTT 자막, 포스터가 함께 들어갑니다. 서버는 `/tutorial/`에서 파일을 제공하며 브라우저는 재생할 때 필요한 구간을 요청합니다. [플레이어](../admin/src/Tutorial.tsx) · [영상과 자막](../admin/public/tutorial)
 
 다시 녹화하려면 테스트 전용 PostgreSQL(`TEST_DATABASE_URL`), Chromium, FFmpeg, OpenSSL, xdotool과 전용 1440×810 X11 화면(`DISPLAY`)을 준비합니다. 녹화용 브라우저에서만 `review.example.com`과 `studio.example.com`을 로컬 HTTPS 서버에 연결합니다. 저장소에서 `DIST_DIR=dist-tutorial npm run build` 후 같은 `DIST_DIR`로 `npm run tutorial:record`를 실행합니다. `-- --dry-run`으로 동작만 확인할 수도 있습니다. [녹화 스크립트](../scripts/tutorial-record.ts)
