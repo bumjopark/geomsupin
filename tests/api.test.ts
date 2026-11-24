@@ -432,6 +432,33 @@ describe('전체 흐름: 사이트 → 링크 → 함께 보는 사람들의 요
     expect(del.statusCode).toBe(400); // 길이 제한
   });
 
+  it('동시에 초대 링크의 이름과 폐기를 바꾸면 두 변경이 모두 유지된다', async () => {
+    const created = await t.app.inject({ method: 'POST', url: `/api/sites/${siteId}/links`, headers: cookieHeaders, payload: { label: '동시 변경용' } });
+    expect(created.statusCode).toBe(200);
+    const link = json(created).site.links.find((entry: { label: string }) => entry.label === '동시 변경용');
+    const url = `/api/sites/${siteId}/links/${link.id}`;
+    const update = (payload: { revoked: boolean } | { label: string }) =>
+      t.app.inject({ method: 'PATCH', url, headers: cookieHeaders, payload });
+    const pending: ReturnType<typeof update>[] = [];
+    try {
+      await t.sql.begin(async tx => {
+        await tx`select id from review_links where id = ${link.id} for update`;
+        pending.push(update({ revoked: true }), update({ label: '새 이름' }));
+        await expect.poll(async () => {
+          const [row] = await tx<{ waiting: number }[]>`
+            select count(*)::int as waiting from pg_locks
+            where database = (select oid from pg_database where datname = current_database())
+              and relation = 'review_links'::regclass and mode = 'RowExclusiveLock'`;
+          return row!.waiting;
+        }).toBe(2);
+      });
+    } finally {
+      for (const result of await Promise.all(pending)) expect(result.statusCode).toBe(200);
+    }
+    const res = await t.app.inject({ url: `/api/sites/${siteId}`, headers: cookieHeaders });
+    expect(json(res).site.links.find((entry: { id: string }) => entry.id === link.id)).toMatchObject({ label: '새 이름', active: false });
+  });
+
   it('링크를 폐기하면 초대 화면도 기존 세션도 더는 쓸 수 없다', async () => {
     const site = json(await t.app.inject({ method: 'GET', url: `/api/sites/${siteId}`, headers: cookieHeaders })).site;
     const base = site.links[0];

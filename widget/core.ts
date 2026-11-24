@@ -456,6 +456,7 @@ function start(boot: Boot) {
   }
 
   function openThread(id: string) {
+    if (!session) return;
     closeThread();
     if (!replyMutations.has(id)) replyMutations.set(id, pendingMutation());
     const mutation = replyMutations.get(id)!;
@@ -581,10 +582,10 @@ function start(boot: Boot) {
   async function setStatus(status: string) {
     const t = thread;
     if (!detail || !t) return;
-    if (!(await askName())) return;
+    if (!(await askName()) || thread !== t) return;
     try {
       detailSeq++;
-      const r = await call<{ request: Detail }>(`/requests/${detail.id}`, { method: 'PATCH', body: { status } });
+      const r = await call<{ request: Detail }>(`/requests/${t.id}`, { method: 'PATCH', body: { status } });
       if (thread !== t) return;
       detail = acceptDetail(t, r.request);
       t.sig = threadSig(detail);
@@ -878,6 +879,7 @@ function start(boot: Boot) {
         next.push(...page.requests ?? []);
         before = page.nextBefore;
       }
+      if (!session) return;
       const firstRefresh = !lastRefresh;
       lastRefresh = Date.now();
       if (firstRefresh) notify('active');
@@ -918,14 +920,21 @@ function start(boot: Boot) {
   window.addEventListener('focus', onBack);
 
   function endSession(msg = projectGone ? uiText('이 프로젝트의 검수가 종료됐거나 삭제됐어요. 팀장에게 확인해 주세요.') : uiText('이 링크는 더 이상 쓸 수 없어요. 링크를 보내 준 분께 새 링크를 요청해 주세요.')) {
+    if (!session) return;
     stopLive?.();
     stopLive = undefined;
     window.clearTimeout(liveTimer);
     liveTimer = undefined;
     livePending = false;
     notify('unavailable');
-    closeThread();
     session = '';
+    cancelAll();
+    closeThread();
+    requests = [];
+    markerEls.clear();
+    clear(layerMarkers);
+    clear(panel);
+    root.querySelector('.toast')?.remove();
     reviewer = null;
     mode = 'ended';
     panelOpen = false;
@@ -1038,6 +1047,9 @@ function start(boot: Boot) {
       } catch {
         unavailable();
       }
+    }).then(loaded => {
+      if (!loaded) captureLoad = null;
+      return loaded;
     });
     return captureLoad;
   }

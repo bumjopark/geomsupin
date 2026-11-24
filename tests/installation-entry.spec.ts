@@ -14,6 +14,11 @@ test('HTTP entry appears on the landing page, invitation, and settings without f
     page.on('request', request => {
       if (request.url() === origin + '/api/installation') configurationRequests++;
     });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: async (value: string) => { sessionStorage.setItem('testClipboard', value); } },
+      });
+    });
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto(origin);
     const notice = page.getByRole('complementary', { name: '검수핀 접속 방식' });
@@ -28,6 +33,8 @@ test('HTTP entry appears on the landing page, invitation, and settings without f
 
     await page.goto(origin + '/r/' + token + '?private=1#fragment');
     await expect(page.getByRole('heading', { name: 'Protocol check' })).toBeVisible();
+    await page.getByRole('button', { name: 'Copy invitation link', exact: true }).filter({ visible: true }).click();
+    expect(await page.evaluate(() => sessionStorage.getItem('testClipboard'))).toBe(origin + '/r/' + token);
     const invitationPeer = englishNotice.getByRole('link', { name: 'Open Geomsupin for HTTPS sites' });
     await expect(invitationPeer).toHaveAttribute('referrerpolicy', 'no-referrer');
     await page.route(peerOrigin + '/**', async route => {

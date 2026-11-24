@@ -7,6 +7,7 @@ import { copyFile, mkdir } from 'node:fs/promises';
 import { startTestApp, installManager, createSite } from './helpers.ts';
 import { newTestContext } from './browser.ts';
 import { ReviewBrowser, seedReviewer } from './review-browser.ts';
+declare const selectorTest: typeof import('../widget/env.ts');
 
 const fixture = (script: string) => `<!doctype html><html><meta charset="utf-8"><title>Modal integration</title>
 <style>body{font:18px sans-serif}dialog,.trap{background:#fff;padding:24px;width:500px}dialog{background:#8be6ae;transform:translateX(10px);contain:paint;overflow:hidden}h2{margin:20px}</style>
@@ -40,6 +41,19 @@ async function compose(page: ReviewBrowser, selector: string) {
   await page.mouse.click(bounds.x + 20, bounds.y + 10);
   await page.getByRole('textbox', { name: '요청 내용', exact: true }).waitFor();
 }
+
+test('가림 영역 옆에 있는 웹 컴포넌트의 핀을 같은 요소에서 다시 찾는다', async ({ page }) => {
+  await page.setContent('<review-form></review-form>');
+  const bundle = await build({ entryPoints: ['widget/env.ts'], bundle: true, write: false, format: 'iife', globalName: 'selectorTest' });
+  await page.addScriptTag({ content: bundle.outputFiles[0]!.text });
+  const matches = await page.evaluate(() => {
+    const root = document.querySelector('review-form')!.attachShadow({ mode: 'open' });
+    root.innerHTML = '<section><button>Save</button><input type="password"></section><section><button>Cancel</button></section>';
+    const save = root.querySelector('button')!;
+    return selectorTest.findBySelector(selectorTest.buildSelector(save)) === save;
+  });
+  expect(matches).toBe(true);
+});
 
 for (const engine of ['chromium', 'firefox', ...(process.env.PLAYWRIGHT_EDGE_EXECUTABLE ? ['edge'] : [])]) for (const kind of ['focus', 'native', 'library', 'window', 'window-container', 'shadow', 'legacy']) {
   test(`${engine}: 사이트 ${kind} 모달 위에서 요청·댓글을 실제 키보드로 입력한다`, async ({ browser }) => {

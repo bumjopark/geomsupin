@@ -93,13 +93,16 @@ export function buildSelector(el: Element): string {
 }
 
 /** 가림 영역에 닿는 선택자에는 페이지가 지은 ID, 클래스, 데이터 값을 담지 않는다. */
-function positionalSelector(el: Element): string {
+function positionalSelector(el: Element, within?: ParentNode): string {
   const parts: string[] = [];
   for (let current: Element | null = el; current;) {
     const parent: ParentNode | null = current.parentNode;
     if (!parent) break;
     parts.unshift(`:nth-child(${Array.from(parent.children).indexOf(current) + 1})`);
-    if (parent instanceof ShadowRoot) return `${positionalSelector(parent.host)} >>> ${parts.join(' > ')}`;
+    if (parent instanceof ShadowRoot) {
+      const local = parts.join(' > ');
+      return parent === within ? local : `${positionalSelector(parent.host)} >>> ${local}`;
+    }
     if (parent instanceof Document) {
       parts[0] = 'html';
       return parts.join(' > ');
@@ -119,7 +122,7 @@ function localSelector(el: Element, root: ParentNode): string {
   const parts: string[] = [];
   let cur: Element | null = el;
   while (cur && cur !== document.body && cur !== document.documentElement) {
-    if (cur !== el && touchesReviewMask(cur)) return positionalSelector(el);
+    if (cur !== el && touchesReviewMask(cur)) return positionalSelector(el, root);
     if (cur.id && isStableToken(cur.id) && matchesOnly(`#${esc(cur.id)}`, cur, root)) {
       parts.unshift(`#${esc(cur.id)}`);
       break;

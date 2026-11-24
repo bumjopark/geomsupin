@@ -101,6 +101,7 @@ function Invite({ token }: { token: string }) {
     const [title, body] = CLOSED[data.state];
     return <InviteNotice title={t(title!)} description={`‘${data.project}’ · ${t(body!)}`} retry={data.state === 'unconnected'} />;
   }
+  const invitationUrl = new URL(`/r/${encodeURIComponent(token)}`, window.location.origin).href;
   if (showPreview) return (
     <main className="review-workspace">
       <header className="review-header">
@@ -108,7 +109,7 @@ function Invite({ token }: { token: string }) {
         <div className="row wrap">
           <a className="btn sm" href={data.preview.url} target="_blank" rel="noopener noreferrer">{t("사이트 새 탭에서 열기")}</a>
           <button type="button" className="btn sm" onClick={() => setShowPreview(false)}>{t("북마크 설치로 돌아가기")}</button>
-          <CopyButton className="btn sm" text={window.location.href} label={t("초대 링크 복사")} />
+          <CopyButton className="btn sm" text={invitationUrl} label={t("초대 링크 복사")} />
         </div>
       </header>
       <ReviewPreview key={`${token}:${data.preview.id}:${previewAttempt}:${locale}`} preview={data.preview} base={data.base} widgetKey={data.widgetKey} token={token}
@@ -120,10 +121,10 @@ function Invite({ token }: { token: string }) {
       <p className="eyebrow"><Icon name="pin" /> {t("검수 초대")}</p>
       <h1>{data.project}</h1>
     </header>
-    <Bookmarklet project={data.project} preview={data.preview} base={data.base} widgetKey={data.widgetKey} token={token} />
+    <Bookmarklet project={data.project} preview={data.preview} base={data.base} widgetKey={data.widgetKey} token={token} invitationUrl={invitationUrl} />
     <div className="invite-tools">
       <button type="button" className="btn ghost sm" onClick={() => setShowPreview(true)}><Icon name="window" /> {t("브라우저에서 미리보기")}</button>
-      <CopyButton className="btn ghost sm invite-copy" text={window.location.href} label={t("초대 링크 복사")} />
+      <CopyButton className="btn ghost sm invite-copy" text={invitationUrl} label={t("초대 링크 복사")} />
     </div>
   </main></>;
 }

@@ -118,12 +118,19 @@ test('프레임 금지 사이트에 로그인하고 초대 북마크로 원본 �
     await expect(target).toHaveURL(TARGET);
     await expect(target.getByText('fixture-order-operator 계정으로 로그인됨')).toBeVisible();
     const pinButton = target.locator('.bar button.primary');
+    const captureScript = '**/w-capture.*.js';
+    await target.route(captureScript, route => route.abort());
     await pinButton.click();
     await expect(target.locator('.shield')).toBeVisible();
     const title = (await target.getByRole('heading', { name: '내 주문' }).boundingBox())!;
     const mask = (await target.locator('#private').boundingBox())!;
     await target.mouse.click(title.x + title.width / 2, title.y + title.height / 2);
     const composer = target.getByRole('dialog', { name: '요청 남기기' });
+    await expect(composer).toContainText('화면 캡처에 실패했어요. 캡처 없이 저장돼요.');
+    await composer.getByRole('button', { name: '취소' }).click();
+    await target.unroute(captureScript);
+    await pinButton.click();
+    await target.mouse.click(title.x + title.width / 2, title.y + title.height / 2);
     await composer.getByRole('textbox', { name: '내 별명' }).fill(REVIEWER);
     await composer.getByRole('textbox', { name: '요청 내용' }).fill(BODY);
     await expect(composer.locator('.thumb img')).toBeVisible({ timeout: 30_000 });
@@ -159,6 +166,8 @@ test('프레임 금지 사이트에 로그인하고 초대 북마크로 원본 �
     await expect(links.getByText('폐기됨', { exact: true })).toBeVisible();
     await target.bringToFront();
     await expect(target.getByRole('heading', { name: '검수가 마무리되었거나 링크가 닫혔어요' })).toBeVisible();
+    await expect(target.locator('.marker, .tpop, .draft')).toHaveCount(0);
+    await expect(target.locator('gp-widget')).not.toContainText(BODY);
     await invitePage.reload();
     await expect(invitePage.getByRole('heading', { name: '이 링크는 닫혔어요' })).toBeVisible();
     await target.reload();

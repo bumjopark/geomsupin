@@ -13,7 +13,7 @@
 //   --issue-admin         설치 뒤 현재 작업공간의 1회용 관리 링크를 발급한다
 //   --services            systemd 사용자 서비스까지 만들어 바로 켠다 (Linux)
 //   --rebuild             위젯·관리 화면을 다시 빌드한다
-//   --force               이미 있는 .env 의 값도 덮어쓴다 (기본은 없는 항목만 채움 — 비밀값은 그대로 둔다)
+//   --force               기존 수신·공개 주소 및 명시한 DB 주소를 갱신한다. 인증 키와 데이터 경로는 유지한다
 //
 // 여러 번 실행해도 안전하다. 요구: Node 22 이상, (전용 DB 를 쓸 때) PostgreSQL 16 (apt install postgresql-16, 또는 PG_BIN 지정).
 import { spawnSync } from 'node:child_process';
@@ -44,7 +44,7 @@ const opt = (n) => options[n];
 const step = (msg) => console.log(`\n▶ ${msg}`);
 const rand = (n) => randomBytes(n).toString('base64url');
 
-if (flag('help') || flag('h') || !opt('url')) {
+if (flag('help') || !opt('url')) {
   console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(flag('help') ? 0 : 1);
 }
@@ -67,9 +67,11 @@ if (instance !== installation.instance && (saved.GP_INSTANCE || saved.PUBLIC_URL
   die('이미 구성된 인스턴스의 이름은 변경할 수 없습니다. 별도의 복제 폴더를 사용하세요.');
 }
 if (instance === 'http' && url.protocol !== 'http:') die('--instance http는 HTTP 공개 주소가 필요합니다.');
-const peer = peerReviewOrigin(url.origin, opt('peer-url'));
-if (opt('peer-url') !== undefined && opt('peer-url').trim() && !peer) die('--peer-url에는 반대 프로토콜을 쓰는 검수핀의 루트 주소를 입력하세요.');
-const peerChanged = opt('peer-url') !== undefined && (saved.PEER_REVIEW_URL || '') !== (peer ?? '');
+const requestedPeer = opt('peer-url');
+let peer;
+try { peer = peerReviewOrigin(url.origin, requestedPeer ?? saved.PEER_REVIEW_URL); }
+catch { die('--peer-url에는 반대 프로토콜을 쓰는 검수핀의 루트 주소를 입력하세요. 링크를 끄려면 빈 값을 지정하세요.'); }
+const peerChanged = requestedPeer !== undefined && (saved.PEER_REVIEW_URL || '') !== (peer ?? '');
 const port = checkedPort(opt('port') ?? saved.PORT ?? (url.port || (url.protocol === 'https:' ? 443 : 80)), '--port');
 const pgPort = checkedPort(opt('pg-port') ?? savedPgPort ?? (process.env.GP_PG_PORT || (instance === 'http' ? 55434 : 55433)), '--pg-port');
 if (savedPgPort !== undefined && Number(savedPgPort) !== pgPort) die('기존 설치의 PostgreSQL 포트를 변경할 수 없습니다.');
@@ -132,28 +134,29 @@ else console.log('\n▶ 빌드는 이미 되어 있습니다 (다시 하려면 -
 step('.env 설정');
 const envPath = join(root, '.env');
 const cur = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-const has = (k) => new RegExp(`^${k}=`, 'm').test(cur);
 let out = cur && !cur.endsWith('\n') ? cur + '\n' : cur;
 const notes = [];
 const set = (k, v, { secret = false, replace = false } = {}) => {
-  if (has(k) && !replace && !flag('force')) { notes.push(`  = ${k} (기존 값 유지)`); return; }
-  if (has(k)) out = out.replace(new RegExp(`^${k}=.*$`, 'm'), () => `${k}=${v}`);
+  const entry = new RegExp(`^[\\t ]*${k}[\\t ]*=.*$`, 'm');
+  if (entry.test(out) && !replace) { notes.push(`  = ${k} (기존 값 유지)`); return; }
+  if (entry.test(out)) out = out.replace(entry, () => `${k}=${v}`);
   else out += `${k}=${v}\n`;
   notes.push(`  + ${k}${secret ? ' (비공개)' : `=${v}`}`);
 };
-set('PORT', String(port));
-set('HOST', bind);
-set('PUBLIC_URL', url.origin);
-set('ALLOWED_HOSTS', [...new Set([url.host, `127.0.0.1:${port}`, `localhost:${port}`])].join(','));
+const replace = flag('force');
+set('PORT', String(port), { replace });
+set('HOST', bind, { replace });
+set('PUBLIC_URL', url.origin, { replace });
+set('ALLOWED_HOSTS', [...new Set([url.host, `127.0.0.1:${port}`, `localhost:${port}`])].join(','), { replace });
 set('DATA_DIR', './data');
 set('GP_INSTANCE', instance, { replace: true });
 set('GP_PG_PORT', String(pgPort), { replace: true });
 set('GP_DATABASE_MODE', customDb ? 'external' : 'dedicated', { replace: true });
-if (opt('peer-url') !== undefined) set('PEER_REVIEW_URL', peer ?? '', { replace: true });
+if (requestedPeer !== undefined) set('PEER_REVIEW_URL', peer ?? '', { replace: true });
 if (process.env.PG_BIN) set('PG_BIN', PG_BIN, { replace: true });
 set('AUTH_SECRET', rand(48), { secret: true });
 set('IMAGE_PROXY_ENABLED', 'true');
-if (customDb) set('DATABASE_URL', customDb, { secret: true });
+if (customDb) set('DATABASE_URL', customDb, { secret: true, replace: Boolean(requestedDb) && replace });
 writeFileSync(envPath, out, { mode: 0o600 });
 chmodSync(envPath, 0o600);
 console.log(notes.join('\n'));

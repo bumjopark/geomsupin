@@ -134,7 +134,7 @@ If your team already manages DNS, a trusted public certificate, and an HTTPS pro
 | `--services` | Manage the API and backup timer with user systemd. Omit it to start the API with `npm start` after setup. |
 | `--issue-admin` | Issue an administrator link during setup. |
 | `--rebuild` | Rebuild the web app and widget from the current checkout. |
-| `--force` | Overwrite existing `.env` values written by the installer. This also regenerates `AUTH_SECRET`, which invalidates previously signed file links. |
+| `--force` | Overwrite the public and listener addresses and any database address explicitly supplied. Preserve the existing signing secret and data directory. |
 
 ## Administrator access and public address changes
 
@@ -167,6 +167,8 @@ node scripts/tls-setup.mjs --host "$GEOMSUPIN_NEW_IP" --port 3443 --dir ".local/
 
 Distribute the public CA certificate from the new TLS directory and verify the new HTTPS address in the browser reviewers actually use. Check that `3443/tcp` on the new address is reachable from the team's network. Update the staging site's CSP and any installed preview connection script, reissue the administrator link, and share new invitation links so reviewers can save fresh bookmarks. If the internal API port changes too, update `PORT` in `.env` and the TLS proxy's upstream port.
 
+If the HTTP entry moves to the new IP too, run `npm run set-hosts -- "http://${GEOMSUPIN_NEW_IP}:3080"` from the HTTP checkout. Update its `HOST` and both checkouts' `PEER_REVIEW_URL` settings to the new address, then restart `geomsupin-api` and `geomsupin-http-api`. Verify both public health endpoints and reissue links from each checkout.
+
 ## Check services and deploy updates
 
 ```sh
@@ -176,6 +178,8 @@ curl --fail --show-error http://127.0.0.1:3200/healthz
 ```
 
 Expect `active (running)` for the API and `active (waiting)` for the backup timer. Check `systemctl --user status geomsupin-db` for the dedicated database and `systemctl --user status geomsupin-tls` for the internal-IP HTTPS proxy. Check the public `/healthz` URL from a reviewer's PC too. Use the API listener address and port configured for this installation when checking it locally.
+
+For the HTTP checkout use `geomsupin-http-api`, `geomsupin-http-db` and `geomsupin-http-backup.timer`. Its health endpoint uses the configured HTTP address on port 3080. Run updates from the checkout you intend to deploy.
 
 For a trial without user services, omit `--services` during setup. Run `npm start` in one terminal and check `/healthz` from a second terminal or a reviewer's PC. If the dedicated PostgreSQL cluster is stopped, start it with `npm run pg:start`.
 
@@ -228,6 +232,8 @@ systemctl --user start geomsupin-backup.service
 systemctl --user status geomsupin-backup.service
 ```
 
+For HTTP, use `geomsupin-http-backup.service` and run backup or restore commands from the HTTP checkout.
+
 The scheduled timer runs at 04:40 server time with up to two minutes of delay. The management screen reports recent failure, a stalled run, or a last successful backup older than 36 hours. To back up immediately using the deployed release's runtime from the checkout, run `node scripts/serve-release.mjs --backup`.
 
 Prepare an **empty database** and an **empty data directory** for recovery. If the tools are in a nonstandard directory, export `PG_BIN` first. Set `RESTORE_DATABASE_URL` for the destination database and run the restore.
@@ -242,7 +248,7 @@ npm run restore -- "$GEOMSUPIN_BACKUP_PATH" "$GEOMSUPIN_RESTORE_PATH"
 unset RESTORE_DATABASE_URL
 ```
 
-Update `DATABASE_URL` and `DATA_DIR` in the recovered `recovered.env` to point at the restored resources, then use that file as `.env` in the installation directory. Retain the original `AUTH_SECRET` to preserve existing signed file URLs. Restart the API and verify the public health endpoint, a management session, and a restored request with a screenshot.
+In the destination checkout's `.env`, point `DATABASE_URL` and `DATA_DIR` to the restored resources. Copy the original `AUTH_SECRET` from `recovered.env` to preserve signed file URLs. Keep the destination's instance, listener, peer, PostgreSQL port and test database settings. For a database managed outside this installation, set `GP_DATABASE_MODE=external` and run `npm run services:install` to refresh the unit dependencies. Restart the destination API (`geomsupin-api` or `geomsupin-http-api`) and verify its public health endpoint, an administrator session, and a restored request with a screenshot.
 
 ## Troubleshooting
 

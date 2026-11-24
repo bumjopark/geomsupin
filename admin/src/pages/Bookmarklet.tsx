@@ -9,11 +9,12 @@ interface BookmarkletProps {
   base: string;
   widgetKey: string;
   token: string;
+  invitationUrl: string;
   project: string;
   preview: { url: string; id: string };
 }
 
-export function Bookmarklet({ base, widgetKey, token, project, preview }: BookmarkletProps) {
+export function Bookmarklet({ base, widgetKey, token, project, preview, invitationUrl }: BookmarkletProps) {
   const { locale, t } = useLocale();
   const [pid] = useState(reviewerPid);
   const instructions = useId();
@@ -27,7 +28,7 @@ export function Bookmarklet({ base, widgetKey, token, project, preview }: Bookma
       <h2 id="transfer-title">{t("PC에서 북마크 설치하기")}</h2>
       <p>{t("이 초대 링크를 복사해 PC 브라우저에서 여세요.")}</p>
       <div className="row wrap">
-        <CopyButton text={window.location.href} label={t("초대 링크 복사")} className="btn primary" />
+        <CopyButton text={invitationUrl} label={t("초대 링크 복사")} className="btn primary" />
         <a className="small" href={preview.url} target="_blank" rel="noopener noreferrer">{t("검수할 사이트 열기")} <Icon name="external" /></a>
       </div>
     </section>

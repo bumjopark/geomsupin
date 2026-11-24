@@ -180,11 +180,17 @@ export function siteRoutes(ctx: AppContext, events: ReviewEvents) {
       const p = req.params as { id: string; linkId: string };
       const s = await ownedSite(ctx, req.auth!.workspaceId, p.id);
       const b = linkPatchSchema.parse(req.body);
-      const cur = (await ctx.sql<LinkRow[]>`select * from review_links where id = ${p.linkId} and site_id = ${s.id}`)[0];
-      if (!cur) throw httpError(404, 'not_found', '링크를 찾을 수 없습니다');
-      const revokedAt = b.revoked === undefined ? cur.revoked_at : b.revoked ? cur.revoked_at ?? new Date() : null;
-      const expires = b.expiresAt === undefined ? cur.expires_at : b.expiresAt === null ? null : new Date(b.expiresAt);
-      await ctx.sql`update review_links set label = ${b.label ?? cur.label}, revoked_at = ${revokedAt}, expires_at = ${expires} where id = ${cur.id}`;
+      const [updated] = await ctx.sql`
+        update review_links set
+          label = coalesce(${b.label ?? null}, label),
+          revoked_at = case ${b.revoked ?? null}::boolean
+            when true then coalesce(revoked_at, now())
+            when false then null
+            else revoked_at end,
+          expires_at = case when ${b.expiresAt !== undefined} then ${b.expiresAt ?? null}::timestamptz else expires_at end
+        where id = ${p.linkId} and site_id = ${s.id}
+        returning id`;
+      if (!updated) throw httpError(404, 'not_found', '링크를 찾을 수 없습니다');
       if (b.revoked !== undefined || b.expiresAt !== undefined) events.publish(s.id);
       return { site: await siteDetail(ctx, s) };
     });

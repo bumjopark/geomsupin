@@ -40,6 +40,7 @@ systemctl --user show-environment >/dev/null
 ```bash
 git clone https://github.com/bumjopark/geomsupin.git && cd geomsupin
 npm ci --include=dev
+npx playwright install chromium firefox
 ```
 
 검수핀의 기본 설치는 팀 PC에서 접속할 수 있는 고정 서버 IPv4 주소를 사용합니다. 고정 IP 또는 DHCP 예약을 준비하세요. 방화벽에서 검수할 팀 네트워크에만 서버의 `3443/tcp`를 허용합니다. 사용자 nginx는 `0.0.0.0:3443`에서 HTTPS를 받고 API의 `127.0.0.1:3200`으로 전달합니다. API 포트와 전용 DB 포트 `55433`은 루프백에서만 사용합니다.
@@ -134,7 +135,7 @@ unset GEOMSUPIN_DATABASE_URL
 | `--services` | systemd로 API와 백업 타이머를 운영할 때. 생략하면 설치 후 `npm start`로 직접 실행합니다. |
 | `--issue-admin` | 설치 직후 기본 작업공간의 관리 링크도 함께 발급할 때 |
 | `--rebuild` | 현재 소스로 정적 파일을 다시 빌드할 때 |
-| `--force` | 기존 `.env`의 설정을 새 값으로 덮어쓸 때. `AUTH_SECRET`도 재생성되므로 기존 서명 파일 링크에 영향을 줍니다. |
+| `--force` | 공개·수신 주소와 명시적으로 지정한 DB 접속 주소를 덮어쓸 때. 기존 서명 비밀값과 데이터 폴더는 유지합니다. |
 
 ## 관리자 접근과 주소 변경
 
@@ -169,6 +170,8 @@ node scripts/tls-setup.mjs --host "$GEOMSUPIN_NEW_IP" --port 3443 --dir ".local/
 
 새 TLS 디렉터리의 공개 CA 인증서를 배포하고, 팀 PC의 실제 브라우저에서 새 HTTPS 주소를 확인합니다. 새 IP에서 `3443/tcp`가 검수 팀에 열려 있는지 확인하고 검수할 사이트의 CSP와 사용하는 연결 스크립트를 갱신합니다. 관리 링크를 재발급하고 초대 링크를 다시 공유하세요. 참여자는 새 초대 주소에서 북마크를 다시 저장합니다. 내부 API 포트도 바뀐다면 `.env`의 `PORT`와 TLS 프록시 대상 포트를 함께 갱신합니다.
 
+HTTP 입구도 새 IP로 옮기려면 HTTP 복제본에서 `npm run set-hosts -- "http://${GEOMSUPIN_NEW_IP}:3080"`을 실행합니다. HTTP 설치의 `HOST`와 양쪽 설치의 `PEER_REVIEW_URL`을 새 주소에 맞춘 뒤 `geomsupin-api`와 `geomsupin-http-api`를 재시작합니다. 두 공개 상태 주소를 확인하고 각 설치에서 관리 링크와 초대를 다시 발급합니다.
+
 ## 서비스 확인과 업데이트
 
 ```sh
@@ -179,6 +182,8 @@ curl --fail http://127.0.0.1:3200/healthz
 
 `geomsupin-api`는 `active (running)`, 백업 타이머는 `active (waiting)`이면 정상입니다. 전용 DB는 `systemctl --user status geomsupin-db`, IP HTTPS 프록시는 `systemctl --user status geomsupin-tls`로 각각 확인합니다. 이후 참여자 PC에서도 공개 주소의 `/healthz`를 확인합니다.
 
+HTTP 복제본에서는 `geomsupin-http-api`, `geomsupin-http-db`, `geomsupin-http-backup.timer`와 설정한 3080 공개 주소의 상태를 확인합니다. 업데이트할 설치의 복제 폴더에서 배포를 실행하세요.
+
 사용자 서비스 없이 시험할 때는 설치 옵션에서 `--services`를 빼고 `npm start`로 서버를 실행합니다. 서버가 실행 중인 터미널은 둔 채 다른 터미널 또는 PC에서 `/healthz`를 확인하세요. 전용 DB가 꺼졌으면 설치 폴더에서 `npm run pg:start`로 먼저 시작합니다.
 
 릴리스 배포를 처음 쓸 때는 업데이트를 내려받기 전에 현재 체크아웃이 실제 운영 커밋인지 확인한 뒤 `npm run deploy -- --baseline "$(git rev-parse HEAD)"`를 한 번 실행합니다. 업데이트용 서버에는 테스트 DB, Chromium·Firefox와 PostgreSQL 도구가 필요합니다. [개발과 검증](../../README.ko.md#개발과-검증)
@@ -186,6 +191,7 @@ curl --fail http://127.0.0.1:3200/healthz
 ```bash
 git pull --ff-only
 npm ci --include=dev
+npx playwright install chromium firefox
 ```
 
 업데이트한 뒤 서비스 정의를 갱신합니다. 설치기는 전용·외부 DB 선택과 설치 때 지정한 `PG_BIN`을 저장합니다. 이전 버전에서 외부 DB를 쓰면서 `data/postgres/`에 과거 전용 클러스터까지 남겨 둔 경우에는 `npm run services:install -- --no-db`를 명시하세요.
@@ -218,6 +224,8 @@ systemctl --user start geomsupin-backup.service
 systemctl --user status geomsupin-backup.service
 ```
 
+HTTP 설치는 `geomsupin-http-backup.service`를 사용합니다. HTTP 복제 폴더에서 백업과 복구 명령을 실행하세요.
+
 야간 타이머는 서버 시간 04:40부터 최대 2분 지연 후 실행합니다. 관리 화면에서 최근 실패, 장시간 진행 중단, 마지막 성공 뒤 36시간이 지난 상태를 확인할 수 있습니다. 서비스로 배포된 버전에서 즉시 수동 백업하려면 `node scripts/serve-release.mjs --backup`을 사용합니다.
 
 복구용 **빈 DB**와 **빈 데이터 폴더**를 준비합니다. `RESTORE_DATABASE_URL` 환경변수에 복구할 DB의 접속 주소를 지정하고 아래 명령을 실행합니다.
@@ -232,7 +240,7 @@ npm run restore -- "$GEOMSUPIN_BACKUP_PATH" "$GEOMSUPIN_RESTORE_PATH"
 unset RESTORE_DATABASE_URL
 ```
 
-복구된 `recovered.env`에서 `DATABASE_URL`과 `DATA_DIR`을 새 위치에 맞춘 뒤 설치 폴더의 `.env`로 사용합니다. 기존 파일 링크를 유지하려면 원래 `AUTH_SECRET`이 필요합니다.
+복구 대상 설치의 `.env`에서 `DATABASE_URL`과 `DATA_DIR`을 복구한 위치로 바꿉니다. 기존 서명 파일 링크를 유지하려면 `recovered.env`에서 원래 `AUTH_SECRET`을 복사합니다. 대상 설치의 인스턴스, 수신 주소, 상대 입구, PostgreSQL 포트와 테스트 DB 설정은 유지하세요. 설치 외부에서 DB를 관리한다면 `GP_DATABASE_MODE=external`로 설정하고 `npm run services:install`로 서비스 의존성을 갱신합니다. 해당 API(`geomsupin-api` 또는 `geomsupin-http-api`)를 재시작한 뒤 공개 상태 주소, 관리 세션과 캡처가 있는 복구 요청을 확인합니다.
 
 ## 문제 해결
 
