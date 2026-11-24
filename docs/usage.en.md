@@ -2,7 +2,7 @@
 
 [한국어](usage.md) · English
 
-Select **Tutorial video** at the top of the app to watch a project go from setup to pins and replies. Select **EN** for English captions and chapters. The recording shows the Korean interface. [MP4 video](../admin/public/tutorial/review-guide.mp4?raw=true) · [English captions](../admin/public/tutorial/review-guide.en.vtt?raw=true) · [Korean captions](../admin/public/tutorial/review-guide.ko.vtt?raw=true)
+Select **EN** and open **Tutorial video** to follow a project from setup to the first pin and reply. The English walkthrough uses the English interface and includes captions in the video itself. [Download the English MP4](../admin/public/tutorial/review-guide.en.mp4?raw=true) · [Korean walkthrough](usage.md)
 
 ## Invite your team
 
@@ -50,10 +50,19 @@ Open the project’s **Requests** tab to see pins together in one list. Open a r
 
 In **Settings → Advanced settings → Manage invitation links**, create links with different expiration dates for clients or teams. These links share the same project records. Select **Revoke** next to a link to end access through it. Capture URLs issued to reviewers through that link stop serving new downloads. Manage downloaded copies and Excel exports shared by administrators separately. **End review** closes the review for all participants and keeps its records. To remove a project and its records, select **Delete project** and enter its name.
 
+## Site compatibility
+
+| What you see | What works |
+| --- | --- |
+| The HTTPS staging site allows Geomsupin scripts and API connections | Open the site in its own tab, sign in normally, and click the project bookmark. |
+| The site blocks framing, for example Naver’s home page | The embedded preview is unavailable. The bookmark in the original tab still depends on that site's script and connection policies. |
+| The site or browser blocks the bookmark, its scripts, or its API connection | Pins are unavailable on that page. On a site you manage, ask its administrator to allow your Geomsupin origin. On other sites, the owner controls these settings. |
+| The staging site only has an HTTP address | The HTTPS installation requires an HTTPS review URL. Your team can terminate TLS at the staging site's own reverse proxy and forward requests to the internal HTTP app. Register the HTTPS address that reviewers actually open. |
+
+The original tab and the embedded preview have separate requirements. To pin inside **Preview in browser**, the site must also allow framing and include the **Embedded preview script** from project settings. [Browser framing policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options) · [Mixed content](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Mixed_content)
+
 ## If the bookmark does not open the pin tool
 
-- **Check the tab’s address.** Use the bookmark in the original site tab on the registered scheme, host, and port. If you are on a separate sign-in provider’s page, finish signing in and return to the review site.
+- **Check the tab’s address.** Use the bookmark in the original site tab on the registered scheme, host, and port. If the site redirects, register the final address and save a new bookmark. For example, `naver.com` and `www.naver.com` are different origins. If you are on a separate sign-in provider’s page, finish signing in and return to the review site.
 - **Open the current invitation.** If the administrator changed the linked site or invitation, save the bookmark again from the current invitation. If no message appears, reload the review site and try the bookmark again.
 - **Check the site and browser policies.** The bookmark needs no script permanently added to the review site. It still needs the browser to run a JavaScript bookmark and the site to allow Geomsupin’s scripts and API connections. Restrictive policies can block the tool without showing a message. For internal staging, ask the site administrator to check those policies and whether your browser trusts the Geomsupin server’s HTTPS certificate.
-
-The invitation also offers **Preview in browser**. To use pins there, an administrator must add the **Embedded preview script** from the project settings to the site and allow the site to be framed by Geomsupin. If the site blocks framing, use the bookmark in the original tab when its script and connection policies permit it.

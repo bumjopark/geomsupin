@@ -49,6 +49,13 @@ The build writes to `dist/admin/` and `dist/widget/` by default. Staging loads t
 
 ## Tutorial video
 
-The management build includes an MP4, Korean and English WebVTT captions, and a poster. The server serves these files under `/tutorial/`, and the browser requests byte ranges during playback. [Player](../admin/src/Tutorial.tsx) · [Video and captions](../admin/public/tutorial) · [User guide](usage.en.md)
+The admin app selects a video and poster for the current language. Each MP4 shows the matching interface with captions burned into the picture for sharing. The player reads chapter names and timestamps from that recording’s WebVTT file. The server serves these files under `/tutorial/`, and the browser requests byte ranges during playback. [Player](../admin/src/Tutorial.tsx) · [Video and captions](../admin/public/tutorial) · [User guide](usage.en.md)
 
-To record the tutorial again, prepare a test-only PostgreSQL database (`TEST_DATABASE_URL`), Chromium, FFmpeg, OpenSSL, xdotool, and a dedicated 1440×810 X11 display (`DISPLAY`). The recorded browser maps `review.example.com` and `studio.example.com` to local HTTPS servers. In the repository, run `DIST_DIR=dist-tutorial npm run build`, then run `npm run tutorial:record` with the same `DIST_DIR`. Pass `-- --dry-run` to check the workflow without replacing the media. [Recording script](../scripts/tutorial-record.ts)
+To record the tutorial again, prepare a test-only PostgreSQL database (`TEST_DATABASE_URL`), Chromium, FFmpeg, OpenSSL, xdotool, and a dedicated 1440×810 X11 display (`DISPLAY`). The recorded browser maps `review.example.com` and `studio.example.com` to local HTTPS servers. From the repository, build once and record the editions in separate runs. Keep the same display and test database available for both commands. Add `--dry-run` to either recording to rehearse it. [Recording script](../scripts/tutorial-record.ts)
+
+```bash
+export DIST_DIR=dist-tutorial
+npm run build
+npm run tutorial:record -- --language=ko
+npm run tutorial:record -- --language=en
+```

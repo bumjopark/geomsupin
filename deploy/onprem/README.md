@@ -44,7 +44,7 @@ npm ci --include=dev
 
 The default setup uses a fixed server IPv4 address reachable from reviewers' PCs. Use a static IP or a DHCP reservation. Allow inbound `3443/tcp` from the review team's network. The user nginx service listens on `0.0.0.0:3443` for HTTPS and proxies to the API at `127.0.0.1:3200`. Keep the API and the dedicated database port `55433` on loopback.
 
-The site under review must also use HTTPS and have a different origin. Confirm both addresses open from the reviewer's PC. If the site uses a Content Security Policy, check with its administrator whether it permits the Geomsupin scripts and API connections.
+The site under review must also use HTTPS and have a different origin. Confirm both addresses open from the reviewer's PC. If the staging app listens on HTTP internally, its own reverse proxy can serve HTTPS to reviewers. Register that HTTPS address in the project. Check the site’s script, connection, and framing policies before inviting the team. [Site compatibility](../../docs/usage.en.md#site-compatibility)
 
 ## First installation
 

@@ -49,6 +49,13 @@ flowchart LR
 
 ## 사용법 영상
 
-관리 화면 빌드에 MP4, 한국어·영어 WebVTT 자막, 포스터가 함께 들어갑니다. 서버는 `/tutorial/`에서 파일을 제공하며 브라우저는 재생할 때 필요한 구간을 요청합니다. [플레이어](../admin/src/Tutorial.tsx) · [영상과 자막](../admin/public/tutorial)
+관리 화면은 현재 언어에 맞는 영상과 포스터를 선택합니다. 각 MP4는 해당 언어 화면으로 녹화하고 자막을 영상에 입혀 공유할 수 있습니다. 플레이어는 해당 녹화의 WebVTT에서 챕터 이름과 시작 시간을 읽습니다. 서버는 `/tutorial/`에서 파일을 제공하며 브라우저는 재생할 때 필요한 구간을 요청합니다. [플레이어](../admin/src/Tutorial.tsx) · [영상과 자막](../admin/public/tutorial)
 
-다시 녹화하려면 테스트 전용 PostgreSQL(`TEST_DATABASE_URL`), Chromium, FFmpeg, OpenSSL, xdotool과 전용 1440×810 X11 화면(`DISPLAY`)을 준비합니다. 녹화용 브라우저에서만 `review.example.com`과 `studio.example.com`을 로컬 HTTPS 서버에 연결합니다. 저장소에서 `DIST_DIR=dist-tutorial npm run build` 후 같은 `DIST_DIR`로 `npm run tutorial:record`를 실행합니다. `-- --dry-run`으로 동작만 확인할 수도 있습니다. [녹화 스크립트](../scripts/tutorial-record.ts)
+다시 녹화하려면 테스트 전용 PostgreSQL(`TEST_DATABASE_URL`), Chromium, FFmpeg, OpenSSL, xdotool과 전용 1440×810 X11 화면(`DISPLAY`)을 준비합니다. 녹화용 브라우저에서만 `review.example.com`과 `studio.example.com`을 로컬 HTTPS 서버에 연결합니다. 아래처럼 한 번 빌드한 뒤 같은 디스플레이와 테스트 DB로 한국어와 영어 영상을 차례로 녹화합니다. 각 녹화 명령 끝에 `--dry-run`을 추가하면 동작만 확인할 수 있습니다. [녹화 스크립트](../scripts/tutorial-record.ts)
+
+```bash
+export DIST_DIR=dist-tutorial
+npm run build
+npm run tutorial:record -- --language=ko
+npm run tutorial:record -- --language=en
+```

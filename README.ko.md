@@ -6,11 +6,11 @@
 
 **1분 사용법 · 프로젝트 만들기부터 팀원의 핀에 답글 달기까지**
 
-https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
+https://github.com/user-attachments/assets/b99c4dd8-4933-4783-b115-886f67be48b3
 
-[MP4 영상](admin/public/tutorial/review-guide.mp4?raw=true) · [한국어 자막](admin/public/tutorial/review-guide.ko.vtt?raw=true) · [영어 자막](admin/public/tutorial/review-guide.en.vtt?raw=true) · [설치와 운영](deploy/onprem/README.ko.md) · [화면으로 보는 사용법](docs/usage.md)
+[한국어 MP4 다운로드](admin/public/tutorial/review-guide.mp4?raw=true) · [영어 영상](README.md) · [화면으로 보는 사용법](docs/usage.md)
 
-설치한 검수핀에서는 상단 **사용법 영상**을 누르면 한국어 자막을 켜거나 원하는 장면으로 이동할 수 있습니다.
+**어떤 사이트에서 쓸 수 있나요?** 검수핀 스크립트와 서버 연결을 허용하는 HTTPS 스테이징에서 사용할 수 있습니다. 공개 사이트는 미리보기나 북마크 실행을 제한할 수 있습니다. HTTP로만 운영하는 사내 사이트라면 그 사이트에 HTTPS 접속 주소를 마련하세요. [사이트별 사용 조건](docs/usage.md#사이트별-사용-조건)
 
 ## 1. 서버에 설치
 

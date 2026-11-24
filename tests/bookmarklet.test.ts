@@ -39,7 +39,7 @@ it('연결된 탭에서만 로더를 경유하고 주소로 초대 정보를 전
   const foreign = tab('https://other.example');
   foreign.run();
   expect(foreign.document.createElement).not.toHaveBeenCalled();
-  expect(foreign.alert).toHaveBeenCalledWith(expect.stringContaining('스테이징'));
+  expect(foreign.alert).toHaveBeenCalledWith(expect.stringContaining('등록한 사이트'));
 });
 
 it('실행 중인 링크만 다시 열고 다른 링크에는 새로고침을 안내한다', () => {
@@ -60,7 +60,7 @@ it('북마크에 선택한 영어를 전달하고 안내문에도 사용한다',
   }));
   const foreign = tab('https://other.example');
   foreign.run({ ...args, locale: 'en' });
-  expect(foreign.alert).toHaveBeenCalledWith(expect.stringContaining('connected site'));
+  expect(foreign.alert).toHaveBeenCalledWith(expect.stringContaining('registered site'));
 });
 
 
@@ -79,4 +79,20 @@ it.each(['trusted script URL', 'script append'])('%s 실패 안내 후 같은 �
   here.run();
   expect(here.document.createElement).toHaveBeenCalledTimes(2);
   expect(here.document.head.append).toHaveBeenLastCalledWith(expect.objectContaining({ src: args.base + '/w.js' }));
+});
+
+it.each(['ko', 'en'] as const)('리디렉션 안내는 실제 출처만 표시하고 www를 별도 승인 없이 허용하지 않는다 (%s)', locale => {
+  const current = tab('https://www.staging.example:8443/current-private-path?token=current-private-query');
+  current.run({
+    ...args,
+    origin: 'https://staging.example:8443/registered-private-path?token=registered-private-query',
+    locale,
+  });
+  expect(current.document.createElement).not.toHaveBeenCalled();
+  const [notice] = current.alert.mock.calls[0]!;
+  expect(notice).toContain(locale === 'en' ? 'If it redirects, register the final address.' : '최종 주소를 등록해 주세요.');
+  expect(notice).toContain((locale === 'en' ? 'Registered origin: ' : '등록한 출처: ') + 'https://staging.example:8443');
+  expect(notice).toContain((locale === 'en' ? 'Current origin: ' : '현재 출처: ') + 'https://www.staging.example:8443');
+  expect(notice).not.toContain('private-path');
+  expect(notice).not.toContain('private-query');
 });

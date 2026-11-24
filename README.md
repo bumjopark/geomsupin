@@ -6,11 +6,11 @@ Leave Figma-style feedback on the website you're building. A designer can pin a 
 
 **One-minute walkthrough · Create a project, invite a teammate, and reply to their pin**
 
-https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
+https://github.com/user-attachments/assets/726d9867-5e92-4d84-a9c4-20789782bea1
 
-[Download the MP4](admin/public/tutorial/review-guide.mp4?raw=true) · [English captions](admin/public/tutorial/review-guide.en.vtt?raw=true) · [Korean captions](admin/public/tutorial/review-guide.ko.vtt?raw=true)
+[Download the English MP4](admin/public/tutorial/review-guide.en.mp4?raw=true) · [Korean video](README.ko.md) · [Illustrated guide](docs/usage.en.md)
 
-The video shows the Korean interface. In the app, select **EN** and open the tutorial for English captions and chapters. The illustrated guide includes the English button names. [User guide](docs/usage.en.md)
+**Which sites work?** Use an HTTPS staging site that allows the Geomsupin bookmark to load its scripts and connect to your server. Some public sites block embedded previews or the bookmark itself. For an HTTP-only internal app, give the staging site its own HTTPS address. [Site compatibility](docs/usage.en.md#site-compatibility)
 
 ## 1. Install on your server
 

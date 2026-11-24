@@ -7,7 +7,7 @@ import { createServer } from 'node:https';
 import { join } from 'node:path';
 
 /** Temporary HTTPS endpoints resolved only inside the isolated Chromium recording. */
-export async function tutorialHttps(work: string, hosts: Record<string, number>) {
+export async function tutorialHttps(work: string, hosts: Record<string, number>, homepage?: { host: string; html: Buffer }) {
   const keyPath = join(work, 'site.key');
   const certPath = join(work, 'site.pem');
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
@@ -21,6 +21,10 @@ export async function tutorialHttps(work: string, hosts: Record<string, number>)
   const server = createServer({ key: await readFile(keyPath), cert }, (req, res) => {
     const port = hosts[req.headers.host ?? ''];
     if (!Number.isInteger(port)) { res.writeHead(421).end(); return; }
+    if (homepage && req.headers.host === homepage.host && req.method === 'GET' && req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(homepage.html);
+      return;
+    }
     const upstream = request({ hostname: '127.0.0.1', port, method: req.method, path: req.url, headers: req.headers });
     upstream.once('response', response => {
       res.writeHead(response.statusCode ?? 502, response.headers);

@@ -131,7 +131,7 @@ export function ReviewPreview({ preview, token, widgetKey, base, onUnavailable, 
       <div className="review-preview-status">
         <div>
           <span role="status" className={`badge ${pins === 'connected' ? 'ok' : 'off'}`}>{t(PIN_STATUS[pins])}</span>
-          {pins === 'unconfirmed' && <p className="muted small">{t("사이트가 보이면 그대로 볼 수 있어요. 핀에는 연결 스크립트 설치가 필요해요. 화면이 비어 있으면 새 탭에서 열거나 다시 연결해 주세요.")}</p>}
+          {pins === 'unconfirmed' && <p className="muted small">{t("사이트가 삽입을 차단하면 미리보기가 비어 있을 수 있어요. 원본을 새 탭에서 열고, 사이트가 검수핀 스크립트와 API 연결을 허용하면 북마크를 사용하세요. 미리보기에서 핀을 쓰려면 연결 스크립트가 필요해요.")}</p>}
         </div>
         {pins === 'unconfirmed' && <button className="btn sm" type="button" onClick={onReconnect}>{t("미리보기 다시 연결")}</button>}
       </div>

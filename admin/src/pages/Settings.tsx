@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError, fullTime } from '../api.ts';
 import { CopyButton, Icon, useToast } from '../ui.tsx';
 import { InviteCard } from './Share.tsx';
-import { TARGET_URL_MAX, parseTargetUrl } from '../../../shared/target-url.ts';
+import { TARGET_URL_MAX, parseTargetUrl, reviewProtocolIssue } from '../../../shared/target-url.ts';
 import type { Link as ReviewLink, Site } from '../types.ts';
 
 /** 미리보기 연결, 초대 링크, 프로젝트 관리. */
@@ -65,16 +65,19 @@ function PreviewSettings({ site, base, busy, save }: { site: Site; base: string;
   const [value, setValue] = useState(saved);
   useEffect(() => { setValue(saved); }, [saved]);
   const checked = parseTargetUrl(value);
+  const issue = checked.ok
+    ? checked.url ? reviewProtocolIssue(new URL(base).protocol, new URL(checked.url).protocol) : undefined
+    : checked.message;
   const script = site.preview ? `<script defer src="${new URL(base).origin}/w.js" data-gp-preview="${site.preview.id}"></script>` : '';
   return (
     <section className="card pad sec settings-site" aria-label={t("미리보기 연결")}>
       <div className="settings-heading"><span className="section-mark"><Icon name="window" /></span><div><h2>{t("검수할 사이트")}</h2><p>{t("참여자가 핀을 남길 주소를 연결하세요.")}</p></div></div>
-      <form className="row wrap settings-form" onSubmit={(e) => { e.preventDefault(); if (checked.ok) void save(checked.url); }}>
-        <input className="input" value={value} onChange={(e) => setValue(e.target.value)} placeholder="https://staging.example.com" aria-label={t("미리보기 주소")} inputMode="url" autoCapitalize="none" spellCheck={false} maxLength={TARGET_URL_MAX} />
-        <button className="btn primary" type="submit" disabled={busy || !checked.ok || checked.url === saved}>{t("저장")}</button>
+      <form className="row wrap settings-form" onSubmit={(e) => { e.preventDefault(); if (checked.ok && !issue) void save(checked.url); }}>
+        <input className="input" value={value} onChange={(e) => setValue(e.target.value)} placeholder="https://staging.example.com" aria-label={t("미리보기 주소")} inputMode="url" autoCapitalize="none" spellCheck={false} maxLength={TARGET_URL_MAX} aria-invalid={Boolean(issue)} aria-describedby={issue ? "site-url-issue" : undefined} />
+        <button className="btn primary" type="submit" disabled={busy || !checked.ok || Boolean(issue) || checked.url === saved}>{t("저장")}</button>
         {saved && <button className="btn" type="button" disabled={busy} onClick={() => void save('')}>{t("연결 해제")}</button>}
       </form>
-      {!checked.ok && <div className="err" role="alert">{t(checked.message)}</div>}
+      {issue && <div className="err" id="site-url-issue" role="alert">{t(issue)}</div>}
       {script && (
         <details className="bookmark-help preview-settings">
           <summary>{t("내장 미리보기 스크립트")}</summary>

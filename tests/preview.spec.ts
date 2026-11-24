@@ -425,7 +425,7 @@ test('다른 출처 미리보기에서 두 브라우저가 핀과 저장된 위�
       await b.reload();
       await openReviewPreview(b);
       await expect(b.getByRole('status').filter({ hasText: PIN_UNCONFIRMED })).toBeVisible({ timeout: 20_000 });
-      await expect(b.getByText(/화면이 비어 있으면 새 탭에서 열거나 다시 연결/)).toBeVisible();
+      await expect(b.getByText(/사이트가 삽입을 차단하면 미리보기가 비어 있을 수 있어요.*원본을 새 탭에서 열고.*스크립트와 API 연결을 허용하면 북마크를 사용하세요/)).toBeVisible();
       await expect(b.locator('iframe')).toHaveCount(1);
       expect(sessionsWhileBlocked).toBe(0);
       b.off('request', countSession);

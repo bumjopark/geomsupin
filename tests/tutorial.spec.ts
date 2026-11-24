@@ -3,16 +3,21 @@ import { newTestContext } from './browser.ts';
 import { createSite, installManager, startTestApp } from './helpers.ts';
 
 const files = {
-  video: '/tutorial/review-guide.mp4',
-  korean: '/tutorial/review-guide.ko.vtt',
-  english: '/tutorial/review-guide.en.vtt',
-  poster: '/tutorial/review-guide-poster.jpg',
+  ko: { video: '/tutorial/review-guide.mp4', chapters: '/tutorial/review-guide.ko.vtt', poster: '/tutorial/review-guide-poster.jpg' },
+  en: { video: '/tutorial/review-guide.en.mp4', chapters: '/tutorial/review-guide.en.vtt', poster: '/tutorial/review-guide-poster.en.jpg' },
 };
 const title = '검수핀 사용법 영상';
 
-const showingCaptions = (video: Locator) => video.evaluate(element =>
-  Array.from((element as HTMLVideoElement).textTracks)
-    .filter(track => track.mode === 'showing').map(track => track.language));
+async function expectChapterMetadata(video: Locator, language: 'ko' | 'en') {
+  const track = video.locator('track');
+  await expect(track).toHaveCount(1);
+  await expect(track).toHaveAttribute('src', files[language].chapters);
+  await expect(track).toHaveAttribute('kind', 'metadata');
+  await expect.poll(() => track.evaluate(element => (element as HTMLTrackElement).track.cues?.length ?? 0)).toBeGreaterThan(0);
+  expect(await video.evaluate(element => Array.from((element as HTMLVideoElement).textTracks)
+    .map(track => [track.kind, track.mode]))).toEqual([['metadata', 'hidden']]);
+  return track;
+}
 
 test('공개·초대·관리 헤더에서 사용법 영상을 열고 키보드로 재생을 끝낸다', async ({ browser }) => {
   const t = await startTestApp();
@@ -23,12 +28,12 @@ test('공개·초대·관리 헤더에서 사용법 영상을 열고 키보드�
     const origin = await t.app.listen({ host: '127.0.0.1', port: 0 });
     t.ctx.config.allowedHosts.add(new URL(origin).host);
 
-    const range = await context.request.get(origin + files.video, { headers: { Range: 'bytes=0-63' } });
+    const range = await context.request.get(origin + files.ko.video, { headers: { Range: 'bytes=0-63' } });
     expect(range.status()).toBe(206);
     expect(range.headers()['content-type']).toMatch(/^video\/mp4(?:;|$)/);
     expect(range.headers()['content-range']).toMatch(/^bytes 0-63\/\d+$/);
     expect(await range.body()).toHaveLength(64);
-    const head = await context.request.head(origin + files.video);
+    const head = await context.request.head(origin + files.ko.video);
     expect(head.status()).toBe(200);
     expect(head.headers()['content-length']).toBe(range.headers()['content-range']?.split('/')[1]);
     expect(await head.body()).toHaveLength(0);
@@ -48,21 +53,24 @@ test('공개·초대·관리 헤더에서 사용법 영상을 열고 키보드�
     const dialog = page.getByRole('dialog', { name: title });
     const close = dialog.getByRole('button', { name: '닫기' });
     const video = dialog.locator('video');
-    const track = video.locator('track[srclang=ko]');
     await expect(dialog).toBeVisible();
     await expect(close).toBeFocused();
     await expect(video).toHaveAttribute('controls', '');
-    await expect(video).toHaveAttribute('poster', files.poster);
-    await expect(track).toHaveAttribute('src', files.korean);
+    await expect(video).toHaveAttribute('poster', files.ko.poster);
+    await expect(video).toHaveAttribute('src', files.ko.video);
+    const download = dialog.getByRole('link', { name: 'MP4 내려받기' });
+    await expect(download).toHaveAttribute('href', files.ko.video);
+    await expect(download).toHaveAttribute('download', '');
     await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).duration)).toBeGreaterThan(1);
-    await expect.poll(() => track.evaluate(el => (el as HTMLTrackElement).track.cues?.length ?? 0)).toBeGreaterThan(0);
     await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThan(0.15);
-    expect(await showingCaptions(video)).toEqual(['ko']);
+    const track = await expectChapterMetadata(video, 'ko');
     const chapters = dialog.getByRole('navigation', { name: '영상 챕터' });
     await expect(chapters.getByRole('button')).toHaveCount(5);
     const shareCue = await track.evaluate(el => (el as HTMLTrackElement).track.cues?.getCueById('초대 공유')?.startTime);
     expect(shareCue).toBeGreaterThan(0);
-    await chapters.getByRole('button', { name: '초대 공유' }).click();
+    const shareChapter = chapters.getByRole('button', { name: '초대 공유' });
+    await shareChapter.focus();
+    await page.keyboard.press('Enter');
     await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThanOrEqual(shareCue!);
     const mountedVideo = await video.elementHandle();
     expect(await mountedVideo!.evaluate(el => (el as HTMLVideoElement).paused)).toBe(false);
@@ -108,7 +116,7 @@ test('작은 터치 화면에서 포스터를 열고 다운로드 실패 시 안
     const origin = await t.app.listen({ host: '127.0.0.1', port: 0 });
     t.ctx.config.allowedHosts.add(new URL(origin).host);
     const page = await context.newPage();
-    await page.route(`**${files.video}`, route => route.abort());
+    await page.route(`**${files.ko.video}`, route => route.abort());
     await page.goto(origin);
 
     const poster = page.getByRole('button', { name: '사용법 영상 보기' });
@@ -129,7 +137,7 @@ test('작은 터치 화면에서 포스터를 열고 다운로드 실패 시 안
   }
 });
 
-test('영어 사용법 영상의 버튼·챕터·오류를 번역하고 두 자막 언어를 선택할 수 있다', async ({ browser }) => {
+test('영어 영상·포스터·다운로드를 선택하고 자막 트랙 없이 영어 챕터를 제공한다', async ({ browser }) => {
   const t = await startTestApp();
   const context = await newTestContext(browser);
   try {
@@ -148,38 +156,32 @@ test('영어 사용법 영상의 버튼·챕터·오류를 번역하고 두 자�
     const poster = page.getByRole('button', { name: 'Watch tutorial video', exact: true });
     await expect(button).toBeVisible();
     await expect(poster).toBeVisible();
+    await expect(poster.locator('img')).toHaveAttribute('src', files.en.poster);
+    await expect.poll(() => poster.locator('img').evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await button.click();
     const dialog = page.getByRole('dialog', { name: 'Geomsupin tutorial video' });
     const video = dialog.locator('video');
-    const english = video.locator('track[srclang=en]');
-    const korean = video.locator('track[srclang=ko]');
     await expect(video).toHaveAttribute('aria-label', 'Geomsupin tutorial');
     await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused();
-    await expect(english).toHaveAttribute('src', files.english);
-    await expect(korean).toHaveAttribute('src', files.korean);
+    await expect(video).toHaveAttribute('poster', files.en.poster);
+    await expect(video).toHaveAttribute('src', files.en.video);
     await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThan(0.15);
-    expect(await showingCaptions(video)).toEqual(['en']);
+    const english = await expectChapterMetadata(video, 'en');
     const chapters = dialog.getByRole('navigation', { name: 'Video chapters' });
-    await expect(chapters.getByRole('button')).toHaveText([
-      'Connect a project', 'Share an invitation', 'Install the bookmark', 'Pin and comment', 'Replies and status',
-    ]);
-    await chapters.getByRole('button', { name: 'Install the bookmark' }).click();
-    await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThanOrEqual(14.4);
-
-    // Native media controls choose between the two tracks by updating these modes.
-    await english.evaluate(el => { (el as HTMLTrackElement).track.mode = 'disabled'; });
-    await korean.evaluate(el => { (el as HTMLTrackElement).track.mode = 'showing'; });
-    await expect.poll(() => korean.evaluate(el => (el as HTMLTrackElement).track.cues?.length ?? 0)).toBeGreaterThan(0);
-    await expect(chapters.getByRole('button', { name: 'Install the bookmark' })).toBeVisible();
-    const resumedAt = await video.evaluate(async element => {
-      const player = element as HTMLVideoElement;
-      player.pause();
-      const pausedAt = player.currentTime;
-      await player.play();
-      return pausedAt;
+    await expect(chapters.getByRole('button')).toHaveCount(5);
+    const bookmark = await english.evaluate(el => {
+      const cues = Array.from((el as HTMLTrackElement).track.cues ?? []).filter(cue => cue.id);
+      return { label: cues[2]!.id, start: cues[2]!.startTime };
     });
-    await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThan(resumedAt + 0.15);
-    expect(await showingCaptions(video)).toEqual(['ko']);
+    const bookmarkChapter = chapters.getByRole('button', { name: bookmark.label, exact: true });
+    await bookmarkChapter.focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => video.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThanOrEqual(bookmark.start);
+    const download = dialog.getByRole('link', { name: 'Download MP4' });
+    await expect(download).toHaveAttribute('href', files.en.video);
+    const [downloaded] = await Promise.all([page.waitForEvent('download'), download.click()]);
+    expect(downloaded.suggestedFilename()).toBe('review-guide.en.mp4');
+    expect(await downloaded.failure()).toBeNull();
     await page.keyboard.press('Escape');
     await expect(button).toBeFocused();
 
@@ -189,7 +191,8 @@ test('영어 사용법 영상의 버튼·챕터·오류를 번역하고 두 자�
     const koreanDialog = page.getByRole('dialog', { name: title });
     const koreanVideo = koreanDialog.locator('video');
     await expect.poll(() => koreanVideo.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThan(0.15);
-    expect(await showingCaptions(koreanVideo)).toEqual(['ko']);
+    await expect(koreanVideo).toHaveAttribute('src', files.ko.video);
+    await expectChapterMetadata(koreanVideo, 'ko');
     await expect(koreanDialog.getByRole('navigation', { name: '영상 챕터' }).getByRole('button')).toHaveCount(5);
     await page.keyboard.press('Escape');
 
@@ -197,7 +200,7 @@ test('영어 사용법 영상의 버튼·챕터·오류를 번역하고 두 자�
     const offline = await newTestContext(browser);
     try {
       const offlinePage = await offline.newPage();
-      await offlinePage.route(`**${files.video}`, route => route.abort());
+      await offlinePage.route(`**${files.en.video}`, route => route.abort());
       await offlinePage.goto(origin);
       await offlinePage.getByRole('button', { name: 'English', exact: true }).click();
       const trigger = offlinePage.getByRole('button', { name: 'Tutorial video', exact: true });

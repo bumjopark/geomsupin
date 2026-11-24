@@ -2,7 +2,9 @@
 import { normalizeLocale, type Locale } from './locale.ts';
 
 const bookmarkLabels = {
-  wrongTab: ['연결된 스테이징 사이트의 탭을 열고 이 북마크를 눌러 주세요.', 'Open the connected site in its own tab, then click this bookmark.'],
+  wrongTab: ['등록한 사이트를 새 탭에서 열고 북마크를 눌러 주세요. 다른 주소로 이동했다면 최종 주소를 등록해 주세요.', 'Open the registered site in its own tab and click the bookmark. If it redirects, register the final address.'],
+  registeredOrigin: ['등록한 출처: ', 'Registered origin: '],
+  currentOrigin: ['현재 출처: ', 'Current origin: '],
   mixedContent: ['브라우저가 보안 연결에서 HTTP 검수핀을 차단해요. 설치 관리자에게 문의해 주세요.', 'The browser blocks HTTP Geomsupin on a secure page. Contact your installation administrator.'],
   alreadyOpen: ['이 탭에서 검수핀이 이미 켜져 있어요. 페이지를 새로고침한 뒤 이 북마크를 다시 눌러 주세요.', 'Geomsupin is already open in this tab. Refresh the page, then click this bookmark again.'],
   loadFailed: ['검수핀을 불러오지 못했어요. 사이트의 보안 정책과 서버 연결을 확인해 주세요.', 'Could not load Geomsupin. Check the site’s security policy and server connection.'],
@@ -28,9 +30,11 @@ interface BookmarkletArgs {
 export function bookmarkletSource({ base, key, token, pid, previewId, origin, locale: language }: BookmarkletArgs): string {
   const locale = normalizeLocale(language);
   const q = JSON.stringify;
+  const registeredOrigin = new URL(origin).origin;
+  const wrongTab = `${bookmarkText(locale, 'wrongTab')}\n${bookmarkText(locale, 'registeredOrigin')}${registeredOrigin}\n${bookmarkText(locale, 'currentOrigin')}`;
   return (
     `(function(){var w=window,b=${q(base)},k=${q(key)},v=${q(previewId)},p=${q(pid)},t=${q(token)},l=${q(locale)};` +
-    `if(w!==w.top||location.origin!==${q(origin)}){alert(${q(bookmarkText(locale, 'wrongTab'))});return;}` +
+    `if(w!==w.top||location.origin!==${q(registeredOrigin)}){alert(${q(wrongTab)}+location.origin);return;}` +
     `if(location.protocol==='https:'&&b.indexOf('http:')===0){alert(${q(bookmarkText(locale, 'mixedContent'))});return;}` +
     `if(w.__gpBoot){if(w.__gpBoot.matchesBookmark?.(k,v,p,t,l)){document.dispatchEvent(new Event('gp:wake'));}else{alert(${q(bookmarkText(locale, 'alreadyOpen'))});}return;}` +
     `if(w.__gpBookmarkLoading)return;w.__gpBookmarkLoading=true;` +

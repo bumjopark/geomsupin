@@ -5,7 +5,7 @@ import type { AppContext } from '../context.ts';
 import { randomToken } from '../security.ts';
 import { httpError } from '../util.ts';
 import { OPEN_STATUSES } from '../../shared/constants.ts';
-import { TARGET_URL_MAX, parseTargetUrl, readTargetUrl } from '../../shared/target-url.ts';
+import { TARGET_URL_MAX, parseTargetUrl, readTargetUrl, reviewProtocolIssue } from '../../shared/target-url.ts';
 import type { ReviewEvents } from '../review-events.ts';
 
 interface SiteRow {
@@ -71,16 +71,20 @@ export { ownedSite };
 
 export function sitePreview(config: AppContext['config'], row: { preview_url: string; preview_id: string | null }) {
   const url = readTargetUrl(row.preview_url);
-  if (!url || !row.preview_id || !canFrame(config, url)) return undefined;
+  if (!url || !row.preview_id || reviewTargetIssue(config, url)) return undefined;
   return { url, id: row.preview_id };
 }
 
-function canFrame(config: AppContext['config'], url: string) {
+function reviewTargetIssue(config: AppContext['config'], url: string): string | undefined {
   const target = new URL(url);
   const app = new URL(config.publicOrigin);
+  const protocolIssue = reviewProtocolIssue(app.protocol, target.protocol);
+  if (protocolIssue) return protocolIssue;
   // 이 출처는 CSP frame-src의 단일 호스트 소스로도 쓰인다.
   const validHost = /^(?:[a-z0-9.-]+|\[[a-f0-9:.]+\])$/i.test(target.hostname);
-  return validHost && target.protocol === app.protocol && target.origin !== app.origin && !config.allowedHosts.has(target.host);
+  if (!validHost || target.origin === app.origin || config.allowedHosts.has(target.host)) {
+    return '검수핀과 다른 출처의 사이트 주소를 입력해 주세요.';
+  }
 }
 
 function publicSite(s: SiteRow, ctx: AppContext) {
@@ -134,9 +138,8 @@ export function siteRoutes(ctx: AppContext, events: ReviewEvents) {
       const id = (req.params as { id: string }).id;
       const s = await ownedSite(ctx, req.auth!.workspaceId, id);
       const b = patchSchema.parse(req.body);
-      if (b.previewUrl && !canFrame(ctx.config, b.previewUrl)) {
-        throw httpError(400, 'invalid_preview_url', '검수핀과 같은 http/https 방식을 사용하는 별도의 스테이징 주소를 입력해 주세요');
-      }
+      const targetIssue = b.previewUrl ? reviewTargetIssue(ctx.config, b.previewUrl) : undefined;
+      if (targetIssue) throw httpError(400, 'invalid_preview_url', targetIssue);
       const previewUrl = b.previewUrl ?? null;
       const [u] = await ctx.sql<SiteRow[]>`
         update sites set name = coalesce(${b.name ?? null}, name), status = coalesce(${b.status ?? null}, status),

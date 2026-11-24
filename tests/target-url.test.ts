@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { parseTargetUrl, readTargetUrl, targetUrlLabel } from '../shared/target-url.ts';
+import { parseTargetUrl, readTargetUrl, reviewProtocolIssue, targetUrlLabel } from '../shared/target-url.ts';
 
 describe('검수할 주소', () => {
+  it('프로토콜 불일치의 두 방향에 실제 제한 사유를 알려 준다', () => {
+    expect(reviewProtocolIssue('https:', 'https:')).toBeUndefined();
+    expect(reviewProtocolIssue('http:', 'http:')).toBeUndefined();
+    expect(reviewProtocolIssue('https:', 'http:')).toContain('전송 중 변경');
+    expect(reviewProtocolIssue('http:', 'https:')).toContain('HTTP 검수핀 로드를 차단');
+  });
   it('http/https 주소를 표준 형태로 바꾸고, 빈 값은 지움이다', () => {
     expect(parseTargetUrl('  http://Staging.Example.com ')).toEqual({ ok: true, url: 'http://staging.example.com/' });
     expect(parseTargetUrl('https://a.example.com/shop?x=1#top')).toEqual({ ok: true, url: 'https://a.example.com/shop?x=1#top' });

@@ -1,20 +1,24 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import type { Locale } from '../../shared/locale.ts';
 import { useLocale } from './locale.tsx';
 import './tutorial.css';
 
 const MEDIA = '/tutorial/review-guide';
-const POSTER = `${MEDIA}-poster.jpg`;
+const mediaFiles = {
+  ko: { video: `${MEDIA}.mp4`, poster: `${MEDIA}-poster.jpg`, chapters: `${MEDIA}.ko.vtt` },
+  en: { video: `${MEDIA}.en.mp4`, poster: `${MEDIA}-poster.en.jpg`, chapters: `${MEDIA}.en.vtt` },
+};
 
 interface Chapter { name: string; time: number }
 
 const labels = {
   ko: {
     button: '사용법 영상', poster: '사용법 영상 보기', title: '검수핀 사용법 영상', close: '닫기',
-    video: '검수핀 사용법', chapters: '영상 챕터', error: '영상을 불러오지 못했어요. 창을 닫고 다시 열어 주세요.',
+    video: '검수핀 사용법', chapters: '영상 챕터', download: 'MP4 내려받기', error: '영상을 불러오지 못했어요. 창을 닫고 다시 열어 주세요.',
   },
   en: {
     button: 'Tutorial video', poster: 'Watch tutorial video', title: 'Geomsupin tutorial video', close: 'Close',
-    video: 'Geomsupin tutorial', chapters: 'Video chapters', error: 'The video didn’t load. Close this window and try again.',
+    video: 'Geomsupin tutorial', chapters: 'Video chapters', download: 'Download MP4', error: 'The video didn’t load. Close this window and try again.',
   },
 };
 
@@ -27,62 +31,51 @@ function PlayIcon() {
 export function TutorialButton({ variant = 'header' }: { variant?: 'header' | 'poster' }) {
   const { locale } = useLocale();
   const copy = labels[locale];
+  const files = mediaFiles[locale];
   const [open, setOpen] = useState(false);
-  const [mediaError, setMediaError] = useState(false);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [failedLocale, setFailedLocale] = useState<Locale | null>(null);
+  const [chapterState, setChapterState] = useState<{ locale: Locale; entries: Chapter[] } | null>(null);
+  const mediaError = failedLocale === locale;
+  const chapters = chapterState?.locale === locale ? chapterState.entries : [];
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const video = useRef<HTMLVideoElement>(null);
-  const koreanCaptions = useRef<HTMLTrackElement>(null);
-  const englishCaptions = useRef<HTMLTrackElement>(null);
-  const captionOrder = locale === 'en' ? ['en', 'ko'] as const : ['ko', 'en'] as const;
+  const chapterTrack = useRef<HTMLTrackElement>(null);
 
   useEffect(() => {
     const modal = dialog.current;
-    const media = video.current;
     if (!open || !modal) return;
     modal.showModal();
     closeButton.current?.focus();
     return () => {
-      media?.pause();
       if (modal.open) modal.close();
     };
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-    const [preferred, alternate] = locale === 'en'
-      ? [englishCaptions.current, koreanCaptions.current]
-      : [koreanCaptions.current, englishCaptions.current];
+    const element = chapterTrack.current;
     const media = video.current;
-    if (!preferred || !alternate || !media) return;
+    if (!open || !element || !media) return;
 
     const readChapters = () => {
-      const cues = Array.from(preferred.track.cues ?? []);
-      setChapters(cues.filter(cue => cue.id).map(cue => ({ name: cue.id, time: cue.startTime })));
+      const entries = Array.from(element.track.cues ?? [])
+        .filter(cue => cue.id).map(cue => ({ name: cue.id, time: cue.startTime }));
+      setChapterState({ locale, entries });
     };
-    // Some browsers apply their initial caption preference after mounting the tracks.
-    const deduplicate = () => {
-      if (preferred.track.mode === 'showing' && alternate.track.mode === 'showing') {
-        alternate.track.mode = 'disabled';
-      }
-    };
-    media.addEventListener('playing', deduplicate, { once: true });
-    preferred.addEventListener('load', readChapters);
-    alternate.track.mode = 'disabled';
-    preferred.track.mode = 'showing';
-    readChapters();
+    element.addEventListener('load', readChapters);
+    element.track.mode = 'hidden';
+    if (element.readyState === HTMLTrackElement.LOADED) readChapters();
     return () => {
-      media.removeEventListener('playing', deduplicate);
-      preferred.removeEventListener('load', readChapters);
+      media.pause();
+      element.removeEventListener('load', readChapters);
     };
   }, [open, locale]);
 
   function show() {
-    setMediaError(false);
-    setChapters([]);
+    setFailedLocale(null);
+    setChapterState(null);
     setOpen(true);
   }
 
@@ -99,7 +92,7 @@ export function TutorialButton({ variant = 'header' }: { variant?: 'header' | 'p
       aria-haspopup="dialog" aria-controls={id} onClick={show}>
       {isPoster
         ? <>
-          <img src={POSTER} alt="" width="1440" height="810" decoding="async" />
+          <img src={files.poster} alt="" width="1440" height="810" decoding="async" />
           <span className="tutorial-poster-label"><PlayIcon />{copy.poster}</span>
         </>
         : <><PlayIcon />{copy.button}</>}
@@ -112,17 +105,17 @@ export function TutorialButton({ variant = 'header' }: { variant?: 'header' | 'p
           {copy.close}
         </button>
       </div>
-      {open && <video ref={video} className="tutorial-video" aria-label={copy.video}
-        controls autoPlay playsInline preload="metadata" poster={POSTER} src={`${MEDIA}.mp4`} onError={() => setMediaError(true)}>
-        {captionOrder.map(language => <track key={language} kind="captions" src={`${MEDIA}.${language}.vtt`}
-          ref={language === 'ko' ? koreanCaptions : englishCaptions}
-          srcLang={language} label={language === 'ko' ? '한국어' : 'English'} default={language === locale} />)}
+      {open && <video key={locale} ref={video} className="tutorial-video" aria-label={copy.video}
+        controls autoPlay playsInline preload="metadata" poster={files.poster} src={files.video}
+        onLoadedData={() => setFailedLocale(null)} onError={() => setFailedLocale(locale)}>
+        <track ref={chapterTrack} kind="metadata" src={files.chapters} srcLang={locale} label={copy.chapters} />
       </video>}
       {!mediaError && chapters.length > 0 && <nav className="tutorial-chapters" aria-label={copy.chapters}>
         {chapters.map(chapter => <button key={chapter.name} className="btn sm" type="button" onClick={() => {
           if (video.current) video.current.currentTime = chapter.time;
         }}>{chapter.name}</button>)}
       </nav>}
+      {open && <a className="btn sm tutorial-download" href={files.video} download>{copy.download}</a>}
       {mediaError && <p className="tutorial-error" role="alert">{copy.error}</p>}
     </dialog>
   </>;

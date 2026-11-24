@@ -4,6 +4,6 @@ The [main README](README.md) is now in English. Start there to install Geomsupin
 
 **One-minute walkthrough**
 
-https://github.com/user-attachments/assets/6994f722-b646-4e3c-9d6f-d8021c9805b6
+https://github.com/user-attachments/assets/726d9867-5e92-4d84-a9c4-20789782bea1
 
-[Download the MP4](admin/public/tutorial/review-guide.mp4?raw=true) · [English captions](admin/public/tutorial/review-guide.en.vtt?raw=true)
+[Download the English MP4](admin/public/tutorial/review-guide.en.mp4?raw=true) · [Korean video](README.ko.md)
