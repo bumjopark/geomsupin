@@ -1028,11 +1028,16 @@ function start(boot: Boot) {
     if (window.__gpCapture) return Promise.resolve(true);
     captureLoad ??= new Promise<boolean>((resolve) => {
       const s = document.createElement('script');
-      s.src = `${base}/${boot.capture}`;
-      s.async = true;
+      const unavailable = () => { s.remove(); resolve(false); };
       s.onload = () => resolve(Boolean(window.__gpCapture));
-      s.onerror = () => resolve(false);
-      document.head.append(s);
+      s.onerror = unavailable;
+      try {
+        s.src = `${base}/${boot.capture}`;
+        s.async = true;
+        document.head.append(s);
+      } catch {
+        unavailable();
+      }
     });
     return captureLoad;
   }
@@ -1049,7 +1054,7 @@ function start(boot: Boot) {
     const docEl = document.documentElement;
     const big = rect.width * rect.height > innerWidth * innerHeight * 0.85;
     const draft = {
-      pageUrl: location.href,
+      pageUrl: normalizePageUrl(location.href),
       pageTitle: document.title.slice(0, 200),
       selector: buildSelector(target),
       textHint: textHint(target),
@@ -1080,11 +1085,10 @@ function start(boot: Boot) {
     let kind: Kind = '수정';
     let split = false;
     let submitting = false;
-    let skipCapture = false;
     let active = true;
     let previewUrl: string | null = null;
-    let releaseCapture!: (value: null) => void;
-    const skipped = new Promise<null>((resolve) => { releaseCapture = resolve; });
+    let capture: CaptureResult | null | undefined;
+    let previewReady = false;
 
     const needName = !myName();
     const nameInput = h('input', { type: 'text', maxLength: 30, placeholder: uiText('예: 김디자인'), autocomplete: 'name', 'aria-label': uiText('내 별명') });
@@ -1092,12 +1096,23 @@ function start(boot: Boot) {
     const asIs = h('textarea', { placeholder: uiText('지금 (AS-IS)'), maxLength: 1000, rows: 2, class: 'hide' });
     const toBe = h('textarea', { placeholder: uiText('이렇게 (TO-BE)'), maxLength: 1000, rows: 2, class: 'hide' });
     const err = h('div', { class: 'err' });
+    let excludeScreenshot = false;
+    const exclude = h('button', { class: 'chip', type: 'button', 'aria-pressed': 'false' }, uiText('스크린샷 제외'));
+    const excludeRow = h('div', { class: 'row' }, exclude);
     const thumb = h('div', { class: 'thumb' }, h('span', { class: 'spin' }), uiText('화면을 캡처하는 중…'));
     const submit = h('button', { class: 'btn primary', type: 'button' }, uiText('남기기'));
     const kindRow = h('div', { class: 'row' });
     const splitLink = h('button', { class: 'link', type: 'button' }, uiText('고치기 전/후로 나눠 쓰기'));
     const moves = positionMoves(target.closest('button,a,[role="button"]') ?? target, locale);
     let proposalOpen = false;
+    const waitingForPreview = () => capture === undefined || Boolean(capture?.blob && capture.blob.size < 7_000_000 && !previewReady);
+    const refreshSubmit = () => { submit.disabled = submitting || (!proposalOpen && !excludeScreenshot && waitingForPreview()); };
+    exclude.addEventListener('click', () => {
+      excludeScreenshot = !excludeScreenshot;
+      exclude.setAttribute('aria-pressed', String(excludeScreenshot));
+      refreshPreviewState();
+    });
+    refreshSubmit();
     let moveBusy = false;
     let disposeDrag: (() => void) | undefined;
     let proposal: { move: PositionMove; capture: CaptureResult & { blob: Blob }; url: string } | null = null;
@@ -1125,6 +1140,8 @@ function start(boot: Boot) {
       proposalOpen = !proposalOpen;
       moveToggle.setAttribute('aria-expanded', String(proposalOpen));
       moveFields.classList.toggle('hide', !proposalOpen);
+      excludeRow.classList.toggle('hide', proposalOpen);
+      refreshSubmit();
       if (!proposalOpen) { clearProposal(); chooseMove.value = ''; movePreview.disabled = true; }
       place();
     });
@@ -1192,35 +1209,51 @@ function start(boot: Boot) {
       splitLink.textContent = split ? uiText('나눠 쓰기 끄기') : uiText('고치기 전/후로 나눠 쓰기');
     });
 
-    // 캡처가 오래 걸리는 무거운 페이지: 6초가 지나면 캡처를 건너뛰고 바로 등록할 수 있게 한다.
-    const skipTimer = window.setTimeout(() => {
-      if (!thumb.querySelector('.spin')) return;
-      const skip = h('button', { class: 'link', type: 'button', on: { click: () => {
-        if (proposalOpen) { err.textContent = uiText('위치 변경 제안에는 현재 화면 캡처가 필요해요'); return; }
-        skipCapture = true; releaseCapture(null); void send();
-      } } }, uiText('캡처 건너뛰고 남기기'));
-      thumb.append(skip);
-      place();
-    }, 6000);
     disposeCompose = () => {
-      active = false; releaseCapture(null); window.clearTimeout(skipTimer);
+      active = false;
       disposeDrag?.();
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       clearProposal();
     };
 
-    void capturing.then(async (cap) => {
-      window.clearTimeout(skipTimer);
+    const previewRequired = uiText('캡처 미리보기를 기다리거나 스크린샷 제외를 선택해 주세요.');
+    const refreshPreviewState = () => {
+      if (err.textContent === previewRequired && (excludeScreenshot || !waitingForPreview())) err.textContent = '';
+      refreshSubmit();
+    };
+    void capturing.then((cap) => {
       if (!active) return;
+      capture = cap;
+      refreshPreviewState();
       clear(thumb);
-      if (!cap || !cap.blob) {
-        thumb.append(h('span', null, cap ? uiText('화면 캡처에 실패했어요. 캡처 없이 저장돼요.') : uiText('이 사이트에서는 화면 캡처를 불러오지 못했어요. 캡처 없이 저장돼요.')));
+      if (!cap?.blob || cap.blob.size >= 7_000_000) {
+        thumb.append(h('span', null, uiText('화면 캡처에 실패했어요. 캡처 없이 저장돼요.')));
+        place();
         return;
       }
       const url = previewUrl = URL.createObjectURL(cap.blob);
       const n: CaptureNotes = cap.notes;
       const warn = n.images || n.iframes ? en ? ` (${n.images} images and ${n.iframes} frames are shown as striped areas)` : ` (이미지 ${n.images}개·프레임 ${n.iframes}개는 사선 무늬로 표시돼요)` : '';
-      thumb.append(h('img', { src: url, alt: uiText('캡처 미리보기') }), h('span', null, en ? `The current view will be saved${warn}` : `지금 화면이 함께 저장돼요${warn}`));
+      const image = h('img', { alt: uiText('캡처 미리보기') });
+      image.addEventListener('load', () => { previewReady = true; refreshPreviewState(); }, { once: true });
+      image.addEventListener('error', () => {
+        capture = null;
+        refreshPreviewState();
+        clear(thumb);
+        thumb.append(h('span', null, uiText('화면 캡처에 실패했어요. 캡처 없이 저장돼요.')));
+        place();
+      }, { once: true });
+      const captureHint = h('span', null);
+      const refreshHint = () => {
+        captureHint.textContent = excludeScreenshot && !proposalOpen
+          ? uiText('이 요청에 스크린샷을 첨부하지 않아요.')
+          : en ? `The current view will be saved${warn}` : `지금 화면이 함께 저장돼요${warn}`;
+      };
+      exclude.addEventListener('click', refreshHint);
+      moveToggle.addEventListener('click', refreshHint);
+      refreshHint();
+      thumb.append(image, captureHint);
+      image.src = url;
       place();
     });
 
@@ -1232,6 +1265,7 @@ function start(boot: Boot) {
       moves.length ? moveFields : null,
       kindRow,
       thumb,
+      excludeRow,
       err,
       h('div', { class: 'actions' }, h('span', { class: 'muted' }, uiText('Enter 남기기 · Shift+Enter 줄바꿈')), submit),
     );
@@ -1274,13 +1308,17 @@ function start(boot: Boot) {
       if (needName && !name) { err.textContent = uiText('별명을 알려 주세요. 누가 남겼는지 함께 보는 분들께 보여 줘요'); nameInput.focus(); return; }
       const text = ta.value.trim() || (savedProposal ? `${uiText('위치 변경 제안')} · ${savedProposal.move.after}` : '');
       if (!text) { err.textContent = uiText('내용을 입력해 주세요'); ta.focus(); return; }
+      if (!savedProposal && !excludeScreenshot && waitingForPreview()) {
+        err.textContent = previewRequired;
+        return;
+      }
       submitting = true;
-      submit.disabled = true;
+      submit.disabled = exclude.disabled = true;
       moveFields.disabled = moveToggle.disabled = true;
       submit.textContent = uiText('남기는 중…');
       err.textContent = '';
       try {
-        const cap = savedProposal ? await capturing : skipCapture ? null : await Promise.race([capturing, skipped]);
+        const cap = savedProposal ? await capturing : excludeScreenshot ? null : capture;
         if (!active) return;
         let screenshot: string | null = null;
         if (cap?.blob && cap.blob.size < 7_000_000) screenshot = await blobToDataUrl(cap.blob);
@@ -1316,7 +1354,8 @@ function start(boot: Boot) {
         if (isEnded(e)) { cancelAll(); endSession(); return; }
         err.textContent = e instanceof Error ? e.message : uiText('남기지 못했어요. 잠시 뒤에 다시 해 주세요');
         submitting = false;
-        submit.disabled = false;
+        exclude.disabled = false;
+        refreshSubmit();
         moveFields.disabled = moveToggle.disabled = false;
         submit.textContent = uiText('남기기');
       }

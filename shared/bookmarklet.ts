@@ -34,10 +34,9 @@ export function bookmarkletSource({ base, key, token, pid, previewId, origin, lo
     `if(location.protocol==='https:'&&b.indexOf('http:')===0){alert(${q(bookmarkText(locale, 'mixedContent'))});return;}` +
     `if(w.__gpBoot){if(w.__gpBoot.matchesBookmark?.(k,v,p,t,l)){document.dispatchEvent(new Event('gp:wake'));}else{alert(${q(bookmarkText(locale, 'alreadyOpen'))});}return;}` +
     `if(w.__gpBookmarkLoading)return;w.__gpBookmarkLoading=true;` +
-    `var s=document.createElement('script');s.async=true;s.referrerPolicy='no-referrer';s.src=b+'/w.js';` +
-    `s.__gpBookmark={key:k,token:t,pid:p,previewId:v,locale:l};` +
-    `s.onerror=function(){delete w.__gpBookmarkLoading;delete s.__gpBookmark;s.remove();alert(${q(bookmarkText(locale, 'loadFailed'))});};` +
-    `try{(document.head||document.documentElement).append(s);}catch(e){s.onerror();}})()`
+    `var s;function fail(){delete w.__gpBookmarkLoading;if(s){delete s.__gpBookmark;s.remove();}alert(${q(bookmarkText(locale, 'loadFailed'))});}` +
+    `try{s=document.createElement('script');s.async=true;s.referrerPolicy='no-referrer';s.onerror=fail;s.src=b+'/w.js';` +
+    `s.__gpBookmark={key:k,token:t,pid:p,previewId:v,locale:l};(document.head||document.documentElement).append(s);}catch(e){fail();}})()`
   );
 }
 

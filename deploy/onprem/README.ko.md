@@ -58,7 +58,7 @@ npm run onprem:setup -- --url "https://${GEOMSUPIN_IP}:3443" --bind 127.0.0.1 --
   node scripts/tls-setup.mjs --host "$GEOMSUPIN_IP" --port 3443
 ```
 
-설치 계정에서 서비스와 HTTPS 연결을 확인합니다. `/healthz`가 `{"ok":true}`를 반환하면 HTTPS 프록시를 거쳐 API와 DB까지 연결된 상태입니다.
+첫 실행에서는 DB 마이그레이션이 끝나고 API가 정상 응답할 때까지 설치기가 최대 3분간 기다립니다. 설치 계정에서 서비스와 HTTPS 연결을 확인합니다. `/healthz`가 `{"ok":true}`를 반환하면 HTTPS 프록시를 거쳐 API와 DB까지 연결된 상태입니다.
 
 ```bash
 systemctl --user status --no-pager geomsupin-api geomsupin-db geomsupin-tls geomsupin-backup.timer
@@ -155,19 +155,11 @@ git pull --ff-only
 npm ci --include=dev
 ```
 
-PostgreSQL 도구가 `/usr/lib/postgresql/16/bin` 밖에 있으면 서비스 정의를 갱신하기 전에 현재 작업 셸에 `PG_BIN`을 다시 내보냅니다. `.env`에 저장된 값은 백업 서비스에서 사용하며 서비스 정의 스크립트는 작업 셸의 값을 읽습니다.
+업데이트한 뒤 서비스 정의를 갱신합니다. 설치기는 전용·외부 DB 선택과 설치 때 지정한 `PG_BIN`을 저장합니다. 이전 버전에서 외부 DB를 쓰면서 `data/postgres/`에 과거 전용 클러스터까지 남겨 둔 경우에는 `npm run services:install -- --no-db`를 명시하세요.
 
-```bash
-read -r -p 'PostgreSQL 16 실행 파일 디렉터리: ' PG_BIN
-export PG_BIN
+```sh
+npm run services:install
 ```
-
-사용 중인 DB 유형에 맞춰 **명령 하나만** 실행하세요. 외부 DB에 `--no-db`를 생략하면 API 서비스에 전용 DB 의존성이 추가됩니다.
-
-| DB | 서비스 정의 갱신 명령 |
-| --- | --- |
-| 설치기가 만든 전용 PostgreSQL | `npm run services:install` |
-| `--database-url`로 연결한 외부 PostgreSQL | `npm run services:install -- --no-db` |
 
 ```bash
 npm run deploy -- --prepare

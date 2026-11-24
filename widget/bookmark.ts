@@ -62,15 +62,20 @@ export async function startBookmark(script: HTMLScriptElement, corePath: string,
     };
     window.__gpBoot = boot;
     const core = document.createElement('script');
-    core.src = `${base}/${corePath}`;
-    core.referrerPolicy = 'no-referrer';
-    core.async = true;
-    core.onload = () => { delete window.__gpBookmarkLoading; };
-    core.onerror = () => {
+    const loadFailed = () => {
       core.remove();
       failed(bookmarkText(locale, 'loadFailed'));
     };
-    (document.head || document.documentElement).append(core);
+    core.onload = () => { delete window.__gpBookmarkLoading; };
+    core.onerror = loadFailed;
+    try {
+      core.src = `${base}/${corePath}`;
+      core.referrerPolicy = 'no-referrer';
+      core.async = true;
+      (document.head || document.documentElement).append(core);
+    } catch {
+      loadFailed();
+    }
   } catch {
     failed(bookmarkText(locale, 'connectionFailed'));
   }

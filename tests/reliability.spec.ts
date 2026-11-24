@@ -94,16 +94,20 @@ test('응답 유실·경합·저장소 차단·대량 데이터 회귀', async (
       } finally { await p.context().close(); }
     });
 
-    await step('멈춘 캡처를 기다리며 남기기를 누른 뒤에도 캡처를 건너뛰어 저장한다', async () => {
+    await step('미리보기 전에 Enter를 누르면 전송하지 않고 스크린샷 제외를 선택할 수 있다', async () => {
       const p = await widget();
       try {
         await p.evaluate('window.__gpCapture = { captureViewport: () => new Promise(() => {}) }');
         await p.locator('.bar button.primary').click();
         const target = (await p.locator('h1').boundingBox())!;
         await p.mouse.click(target.x + target.width / 2, target.y + target.height / 2);
-        await p.getByRole('textbox', { name: '요청 내용', exact: true }).fill('멈춘 캡처 없이 저장');
+        const text = p.getByRole('textbox', { name: '요청 내용', exact: true });
+        await text.fill('멈춘 캡처 없이 저장');
+        await text.press('Enter');
+        await expect(p.locator('.pop .err')).toContainText('캡처 미리보기를 기다리거나 스크린샷 제외');
+        assert.equal((await t.sql`select count(*)::int as n from requests where body = '멈춘 캡처 없이 저장'`)[0]!.n, 0);
+        await p.getByRole('button', { name: '스크린샷 제외', exact: true }).click();
         await p.getByRole('button', { name: '남기기', exact: true }).click();
-        await p.getByRole('button', { name: '캡처 건너뛰고 남기기', exact: true }).click({ timeout: 10000 });
         await expect(p.getByRole('dialog', { name: '요청 남기기' })).toHaveCount(0);
         assert.equal((await t.sql`select count(*)::int as n from requests where body = '멈춘 캡처 없이 저장' and screenshot_key is null`)[0]!.n, 1);
       } finally { await p.context().close(); await t.sql`delete from requests where body = '멈춘 캡처 없이 저장'`; }

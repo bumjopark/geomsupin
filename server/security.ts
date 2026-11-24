@@ -15,11 +15,13 @@ function deriveKey(secret: string, purpose: string): Buffer {
 }
 
 /** 파일 서명 주소: /files/<key>?exp=<unix>&sig=<hmac>. 키·만료가 서명에 묶인다. */
-export function signFile(secret: string, key: string, expUnix: number): string {
-  return createHmac('sha256', deriveKey(secret, 'file-url')).update(`${key}\n${expUnix}`).digest('base64url');
+export function signFile(secret: string, key: string, expUnix: number, reviewSession?: string): string {
+  const hmac = createHmac('sha256', deriveKey(secret, 'file-url')).update(`${key}\n${expUnix}`);
+  if (reviewSession) hmac.update(`\nreview-session:${reviewSession}`);
+  return hmac.digest('base64url');
 }
 
-export function verifyFileSig(secret: string, key: string, expUnix: number, sig: string): boolean {
+export function verifyFileSig(secret: string, key: string, expUnix: number, sig: string, reviewSession?: string): boolean {
   if (!Number.isFinite(expUnix) || expUnix < Math.floor(Date.now() / 1000)) return false;
-  return safeEqual(signFile(secret, key, expUnix), sig);
+  return safeEqual(signFile(secret, key, expUnix, reviewSession), sig);
 }

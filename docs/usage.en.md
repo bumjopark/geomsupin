@@ -25,14 +25,14 @@ Select **Open review site** or switch to an existing tab for that site. Sign in 
 ## Leave a pin and reply
 
 1. Select **Leave a request** in the lower-right corner, then click the heading, button, image, or other element you want to review.
-2. Enter your name and feedback. You can select **Change**, **Addition**, **Question**, or **Bug**. Wait for the screenshot preview and check it before selecting **Submit**.
+2. Enter your name and feedback. You can select **Change**, **Addition**, **Question**, or **Bug**. To attach the screenshot, wait for the preview and check it before selecting **Submit**. To send a text-only request, select **Exclude screenshot** before or after the preview appears.
 3. Click the numbered pin to open the discussion. Replies and **Resolve** updates appear for other reviewers in the same project. Use **All requests** to find other requests.
 
-![Pin on the Harbor Studio heading with an English request, screenshot preview, and Submit button](images/en/leave-pin.png)
+![Pin on the Harbor Studio heading with an English request, screenshot preview, Exclude screenshot option, and Submit button](images/en/leave-pin.png)
 
-The capture shows what was visible on the page. Password fields and areas marked `data-review-mask` are covered. Cross-origin frames and unavailable images may appear as striped areas. If capture fails, you can still submit a regular request without an image.
+The capture shows what was visible on the page. Password fields and areas marked `data-review-mask` are covered. Cross-origin frames and unavailable images may appear as striped areas. Images with recognized credential or signature parameters are omitted if the browser cannot read them directly. If capture fails, you can still submit a regular request without an image. If the installation uses the image proxy, preparing a capture may send some image URLs to the Geomsupin server.
 
-**Before submitting, check what will be shared.** Reviewers with any active invitation to the same project can see its requests, captures, replies, and **Resolution note**. The request also saves the page title and address, including ordinary URL query parameters and SPA route fragments. The title, address, and resolution note are included in the Excel export. Masking applies only to covered areas of the screenshot. If the page contains sensitive information, cancel the request and use a page that is safe to share.
+**Before submitting, check what will be shared.** Reviewers with any active invitation to the same project can see its requests, captures, replies, and **Resolution note**. The request also saves the page title and address, including ordinary URL query parameters and SPA routes. Query parameters with common credential names, such as tokens, authorization codes, or signatures, are removed from both the main URL and the SPA route. The title, address, and resolution note are included in the Excel export. Masking applies only to covered areas of the screenshot. If the page contains sensitive information, cancel the request and use a page that is safe to share.
 
 ## Suggest a new position
 
@@ -48,7 +48,7 @@ Open the project’s **Requests** tab to see pins together in one list. Open a r
 
 ![English Requests list with two pins, screenshot thumbnails, assignee and status fields, and Export to Excel](images/en/requests.png)
 
-In **Settings → Advanced settings → Manage invitation links**, create links with different expiration dates for clients or teams. These links share the same project records. Select **Revoke** next to a link to end access through it. **End review** closes the review for all participants and keeps its records. To remove a project and its records, select **Delete project** and enter its name.
+In **Settings → Advanced settings → Manage invitation links**, create links with different expiration dates for clients or teams. These links share the same project records. Select **Revoke** next to a link to end access through it. Capture URLs issued to reviewers through that link stop serving new downloads. Manage downloaded copies and Excel exports shared by administrators separately. **End review** closes the review for all participants and keeps its records. To remove a project and its records, select **Delete project** and enter its name.
 
 ## If the bookmark does not open the pin tool
 

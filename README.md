@@ -57,7 +57,7 @@ npm run manage -- --workspace "$GEOMSUPIN_WORKSPACE_ID"
 ## 4. Leave the first pin
 
 1. From the invitation, select **Open review site**, or switch to the tab where you already use the site. Sign in to the site as usual and click the saved bookmark.
-2. Select **Leave a request**, click the element you want to discuss, and enter your nickname and feedback. Check the screenshot preview and select **Submit**.
+2. Select **Leave a request**, click the element you want to discuss, and enter your nickname and feedback. Check the preview, or select **Exclude screenshot** to send just the feedback. Select **Submit**.
 3. A teammate can open the numbered pin and reply. In the administrator's **Requests** view, open the same request to see the screenshot, assign it, or update its status. **Export to Excel** downloads the filtered list with screenshots. [Illustrated user guide](docs/usage.en.md)
 
 People invited to the same project can see its screenshots, page titles, and URLs. Use test data and avoid reviewing URLs that contain secrets. If the review site restricts external scripts or API connections, its administrator may need to allow the Geomsupin origin. [Sharing and bookmark troubleshooting](docs/usage.en.md)
@@ -78,7 +78,7 @@ The check runs TypeScript, builds the admin app and widget in `dist-test/`, then
 | `admin/` | React dashboard, reviewer invitations, and the tutorial player |
 | `widget/` | Bookmark and script entry points, pins, comments, layout proposals, and screenshot capture |
 | `server/` | Fastify API, PostgreSQL access, review sessions, live updates, files, Excel exports, and backups |
-| `server/migrations/` | Versioned SQL migrations |
+| `server/migrations/` | Numbered schema and data migrations |
 | `shared/` | Review types, browser and URL helpers, and shared validation |
 | `demo/`, `tests/` | Sample staging site and unit, database, and browser tests |
 | `scripts/` | Build, installation, administrator access, deployment, and recovery commands |

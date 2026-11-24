@@ -46,6 +46,8 @@ test('영어 북마크가 원본 탭의 핀·대화·상태를 번역하고 저�
     await composer.getByRole('textbox', { name: 'My name' }).fill('검수자');
     await composer.getByRole('textbox', { name: 'Request details' }).fill('사용자가 작성한 내용');
     await composer.getByRole('button', { name: 'Bug' }).click();
+    await expect(composer.getByRole('img', { name: 'Screenshot preview' })).toBeVisible();
+    await composer.getByRole('button', { name: 'Exclude screenshot' }).click();
     await composer.getByRole('button', { name: 'Submit', exact: true }).click();
     await page.locator('.marker', { hasText: /^1$/ }).click();
 
@@ -67,8 +69,8 @@ test('영어 북마크가 원본 탭의 핀·대화·상태를 번역하고 저�
     await page.unroute(requestDetail);
     await resolve.click();
     await expect(thread).toContainText('marked it as resolved');
-    const [saved] = await t.sql`select kind, status, body from requests where site_id = ${site.id}`;
-    expect(saved).toEqual({ kind: '버그', status: '완료', body: '사용자가 작성한 내용' });
+    const [saved] = await t.sql`select kind, status, body, screenshot_key from requests where site_id = ${site.id}`;
+    expect(saved).toEqual({ kind: '버그', status: '완료', body: '사용자가 작성한 내용', screenshot_key: null });
 
     await invite.getByRole('button', { name: 'Preview in browser', exact: true }).click();
     const preview = invite.frameLocator('iframe');

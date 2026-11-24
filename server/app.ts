@@ -102,16 +102,26 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
   const KEY_RE = /^captures\/\d{4}\/\d{2}\/[0-9a-f-]{36}-(?:full|thumb|proposal)\.(?:webp|jpg)$/;
   app.get('/files/*', async (req, reply) => {
     const key = decodeURIComponent((req.params as { '*': string })['*']);
-    const q = req.query as { exp?: string; sig?: string };
-    if (!KEY_RE.test(key) || !verifyFileSig(config.authSecret, key, Number(q.exp), String(q.sig ?? ''))) {
+    const q = req.query as { exp?: string; sig?: string; session?: string };
+    if (!KEY_RE.test(key) || typeof q.sig !== 'string' ||
+        (q.session !== undefined && (typeof q.session !== 'string' || !/^[0-9a-f]{64}$/.test(q.session))) ||
+        !verifyFileSig(config.authSecret, key, Number(q.exp), q.sig, q.session)) {
       return reply.code(403).send(errorBody('forbidden', '만료되었거나 올바르지 않은 주소입니다'));
+    }
+    if (q.session) {
+      const [active] = await ctx.sql`select 1 from widget_sessions ws
+        join review_links l on l.id = ws.link_id
+        join sites s on s.id = ws.site_id and s.preview_id = ws.preview_id
+        where ws.id = ${q.session} and ws.expires_at > now() and s.status = 'active'
+          and l.revoked_at is null and (l.expires_at is null or l.expires_at > now())`;
+      if (!active) return reply.code(403).send(errorBody('forbidden', '검수 링크가 종료되었거나 세션이 만료되었습니다'));
     }
     const f = await ctx.storage.get(key);
     if (!f) return reply.code(404).send(errorBody('not_found', '파일을 찾을 수 없습니다'));
     return reply
       .header('Content-Type', key.endsWith('.webp') ? 'image/webp' : 'image/jpeg')
       .header('Content-Length', f.size)
-      .header('Cache-Control', 'private, max-age=600')
+      .header('Cache-Control', q.session ? 'private, no-store' : 'private, max-age=600')
       .header('Content-Security-Policy', "default-src 'none'; sandbox")
       // 위젯이 고객 스테이징(다른 사이트) 화면 안에 캡처 미리보기를 보여 주므로 다른 사이트의 <img> 도 허용한다. 접근 통제는 서명·만료 주소가 한다.
       .header('Cross-Origin-Resource-Policy', 'cross-origin')

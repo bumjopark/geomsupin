@@ -9,6 +9,7 @@ import { lookup as dnsLookup } from 'node:dns';
 import http from 'node:http';
 import https from 'node:https';
 import type { LookupFunction } from 'node:net';
+import { hasUrlCredentials } from '../shared/constants.ts';
 
 export class ProxyError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -52,7 +53,7 @@ function checkUrl(raw: string, allowPrivate: boolean): URL {
   let u: URL;
   try { u = new URL(raw); } catch { throw new ProxyError(400, 'bad_url', '주소가 올바르지 않습니다'); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new ProxyError(400, 'bad_url', 'http/https 주소만 가능합니다');
-  if (u.username || u.password) throw new ProxyError(400, 'bad_url', '계정 정보가 들어간 주소는 받을 수 없습니다');
+  if (hasUrlCredentials(u)) throw new ProxyError(400, 'bad_url', '인증 정보가 들어간 주소는 받을 수 없습니다');
   if (!allowPrivate) {
     const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
     if (!portAllowed(port)) throw new ProxyError(400, 'bad_port', '표준 포트(80/443)만 가능합니다');

@@ -21,7 +21,7 @@ function tab(origin = args.origin, boot?: { matchesBookmark: (...args: string[])
   const run = (values: Parameters<typeof bookmarkletSource>[0] = args) => runInNewContext(bookmarkletSource(values), {
     window, document, alert, Event, location: new URL(origin),
   });
-  return { alert, run, document, script };
+  return { alert, run, document, script, window };
 }
 
 it('연결된 탭에서만 로더를 경유하고 주소로 초대 정보를 전송하지 않는다', () => {
@@ -61,4 +61,22 @@ it('북마크에 선택한 영어를 전달하고 안내문에도 사용한다',
   const foreign = tab('https://other.example');
   foreign.run({ ...args, locale: 'en' });
   expect(foreign.alert).toHaveBeenCalledWith(expect.stringContaining('connected site'));
+});
+
+
+it.each(['trusted script URL', 'script append'])('%s 실패 안내 후 같은 탭에서 다시 시도할 수 있다', (failure) => {
+  const here = tab();
+  if (failure === 'trusted script URL') {
+    Object.defineProperty(here.script, 'src', { configurable: true, set() { throw new TypeError('TrustedScriptURL required'); } });
+  } else {
+    here.document.head.append.mockImplementationOnce(() => { throw new Error('Script blocked'); });
+  }
+  expect(() => here.run()).not.toThrow();
+  expect(here.alert).toHaveBeenCalledWith(expect.stringContaining('보안 정책'));
+  expect(here.window).not.toHaveProperty('__gpBookmarkLoading');
+  expect(here.script).not.toHaveProperty('__gpBookmark');
+  if (failure === 'trusted script URL') Reflect.deleteProperty(here.script, 'src');
+  here.run();
+  expect(here.document.createElement).toHaveBeenCalledTimes(2);
+  expect(here.document.head.append).toHaveBeenLastCalledWith(expect.objectContaining({ src: args.base + '/w.js' }));
 });

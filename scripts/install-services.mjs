@@ -6,21 +6,20 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { loadEnvFile } from '../shared/env-file.mjs';
+import { readInstallation } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dir = join(homedir(), '.config', 'systemd', 'user');
 mkdirSync(dir, { recursive: true });
 
-const env = {};
-loadEnvFile(join(root, '.env'), env);
+const { env, externalDatabase } = readInstallation(root);
 // Node 는 NODE_BIN 으로 지정하거나, 프로젝트 전용(.tools)이 있으면 그것을, 없으면 지금 이 스크립트를 돌리는 Node 를 쓴다(사내 서버 설치).
 const toolsNode = join(root, '.tools/node_modules/node/bin/node');
 const NODE = process.env.NODE_BIN || (existsSync(toolsNode) ? toolsNode : process.execPath);
-const PG = process.env.PG_BIN || '/usr/lib/postgresql/16/bin';
+const PG = process.env.PG_BIN || env.PG_BIN || '/usr/lib/postgresql/16/bin';
 if (!existsSync(NODE)) throw new Error(`Node 를 찾을 수 없습니다: ${NODE}`);
 if (Number(process.versions.node.split('.')[0]) < 22 && NODE === process.execPath) throw new Error('Node 22 이상이 필요합니다 (현재 ' + process.versions.node + ')');
-const noDb = process.argv.includes('--no-db'); // DATABASE_URL 로 사내 기존 DB 를 쓰는 경우
+const noDb = process.argv.includes('--no-db') || externalDatabase;
 const DB_PORT = process.env.GP_PG_PORT || '55433';
 const BIND = `${env.HOST || '127.0.0.1'}:${env.PORT || 8200}`;
 

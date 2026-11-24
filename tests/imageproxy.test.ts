@@ -51,6 +51,10 @@ describe('이미지 프록시의 포트 규칙', () => {
     for (const p of [80, 443]) expect(portAllowed(p), String(p)).toBe(true);
     for (const p of [21, 22, 25, 110, 445, 1023, 3000, 3123, 5173, 8080, 65535, 0, 3.5]) expect(portAllowed(p), String(p)).toBe(false);
   });
+  it('서명 쿼리가 있는 원본 이미지 주소는 프록시로 가져오지 않는다', async () => {
+    await expect(fetchPublicImage('https://assets.example.test/preview.png?X-Amz-Signature=sample'))
+      .rejects.toMatchObject({ status: 400, code: 'bad_url' });
+  });
   it('표준이 아닌 포트는 400 bad_port 로 거절한다', async () => {
     for (const u of ['http://example.com:22/a.png', 'http://example.com:3123/a.png']) {
       try { await fetchPublicImage(u); expect.unreachable(u); } catch (e) { expect(e).toBeInstanceOf(ProxyError); expect((e as ProxyError).code, u).toBe('bad_port'); }

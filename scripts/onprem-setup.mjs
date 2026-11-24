@@ -1,6 +1,7 @@
-// 사내(on-prem) 설치 도우미: 회사 서버에서 검수핀을 http://IP:포트 로 띄우기 위한 설정을 한 번에 만든다.
+// 사내 설치 도우미: 검수핀 API, PostgreSQL과 사용자 서비스를 준비한다.
 //
-//   node scripts/onprem-setup.mjs --url http://10.0.0.5:3200 [옵션]
+//   node scripts/onprem-setup.mjs --url https://192.168.1.50:3443 --bind 127.0.0.1 --port 3200 --services
+//   node scripts/tls-setup.mjs --host 192.168.1.50 --port 3443
 //
 //   --url <주소>          (필수) 검수핀 자신의 주소. 사람들이 브라우저에 입력하는 주소와 같아야 한다 (예: http://10.0.0.5:3200)
 //   --bind <주소>         서버가 듣는 주소. 기본 0.0.0.0 (사내 모든 인터페이스). 127.0.0.1 이면 이 서버 안에서만 접속된다
@@ -20,6 +21,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { loadEnvFile } from '../shared/env-file.mjs';
+import { readInstallation } from './installation-settings.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const argv = process.argv.slice(2);
@@ -47,12 +49,17 @@ if (url.username || url.password || url.pathname !== '/' || url.search || url.ha
 const port = Number(opt('port') ?? (url.port || (url.protocol === 'https:' ? 443 : 80)));
 if (!Number.isInteger(port) || port < 1 || port > 65535) die('--port는 1~65535 범위의 포트 번호입니다');
 const bind = opt('bind') ?? '0.0.0.0';
-const customDb = opt('database-url');
+const { env: saved, externalDatabase } = readInstallation(root);
+const requestedDb = opt('database-url');
+if (requestedDb && saved.DATABASE_URL && requestedDb !== saved.DATABASE_URL && !flag('force')) {
+  die('기존 DATABASE_URL이 새 주소와 다릅니다. DB를 전환하려면 .env에서 DATABASE_URL을 먼저 갱신하세요.');
+}
+const customDb = requestedDb || (externalDatabase ? saved.DATABASE_URL : undefined);
 if (customDb) { try { new URL(customDb); } catch { die('--database-url 이 올바르지 않습니다 (예: postgresql://사용자:비밀번호@호스트:5432/데이터베이스)'); } }
 console.log(`  주소 ${url.origin} (포트 ${port}, 바인드 ${bind}) ✓`);
 if (url.protocol === 'http:') console.log('  http 로 운영합니다: 검수할 사이트도 http 여야 합니다(https 사이트에서는 브라우저가 http 검수핀을 막습니다).');
 
-const PG_BIN = process.env.PG_BIN || '/usr/lib/postgresql/16/bin';
+const PG_BIN = process.env.PG_BIN || saved.PG_BIN || '/usr/lib/postgresql/16/bin';
 if (!customDb && !existsSync(join(PG_BIN, 'initdb'))) {
   die(`PostgreSQL 16 을 찾을 수 없습니다 (${PG_BIN}).\n  - Ubuntu/Debian:  sudo apt install postgresql-16   (설치되면 PG_BIN 기본 경로가 맞습니다)\n  - 다른 경로면:    PG_BIN=/경로/bin node scripts/onprem-setup.mjs ...\n  - 사내 DB 가 있으면: --database-url postgresql://... 를 주면 이 단계가 필요 없습니다`);
 }
@@ -79,20 +86,22 @@ const cur = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
 const has = (k) => new RegExp(`^${k}=`, 'm').test(cur);
 let out = cur && !cur.endsWith('\n') ? cur + '\n' : cur;
 const notes = [];
-const set = (k, v, secret = false) => {
-  if (has(k) && !flag('force')) { notes.push(`  = ${k} (기존 값 유지)`); return; }
-  if (has(k)) out = out.replace(new RegExp(`^${k}=.*$`, 'm'), `${k}=${v}`);
+const set = (k, v, { secret = false, replace = false } = {}) => {
+  if (has(k) && !replace && !flag('force')) { notes.push(`  = ${k} (기존 값 유지)`); return; }
+  if (has(k)) out = out.replace(new RegExp(`^${k}=.*$`, 'm'), () => `${k}=${v}`);
   else out += `${k}=${v}\n`;
-  notes.push(`  + ${k}${secret ? ' (무작위 생성)' : `=${v}`}`);
+  notes.push(`  + ${k}${secret ? ' (비공개)' : `=${v}`}`);
 };
 set('PORT', String(port));
 set('HOST', bind);
 set('PUBLIC_URL', url.origin);
 set('ALLOWED_HOSTS', [...new Set([url.host, `127.0.0.1:${port}`, `localhost:${port}`])].join(','));
 set('DATA_DIR', './data');
-set('AUTH_SECRET', rand(48), true);
+set('GP_DATABASE_MODE', customDb ? 'external' : 'dedicated', { replace: true });
+if (process.env.PG_BIN) set('PG_BIN', PG_BIN, { replace: true });
+set('AUTH_SECRET', rand(48), { secret: true });
 set('IMAGE_PROXY_ENABLED', 'true');
-if (customDb) set('DATABASE_URL', customDb, true);
+if (customDb) set('DATABASE_URL', customDb, { secret: true });
 writeFileSync(envPath, out, { mode: 0o600 });
 chmodSync(envPath, 0o600);
 console.log(notes.join('\n'));
@@ -117,16 +126,19 @@ if (flag('services')) {
   const hostname = net.isIPv6(listenHost) ? `[${listenHost}]` : listenHost;
   const endpoint = `http://${hostname}:${settings.PORT}/healthz`;
   const host = new URL(settings.PUBLIC_URL).host;
-  const deadline = Date.now() + 30_000;
+  // The API starts listening after all pending database migrations finish.
+  const startupTimeoutMs = 180_000;
+  const deadline = Date.now() + startupTimeoutMs;
+  console.log(`  API 시작과 DB 마이그레이션을 기다립니다 (최대 ${startupTimeoutMs / 60_000}분)`);
   let healthy = false;
   do {
     try {
       const response = await fetch(endpoint, { headers: { host }, signal: AbortSignal.timeout(1500) });
       healthy = response.ok && (await response.json()).ok === true;
     } catch { /* DB와 API 프로세스의 초기화가 끝나기를 기다린다. */ }
-    if (!healthy) await delay(300);
+    if (!healthy) await delay(500);
   } while (!healthy && Date.now() < deadline);
-  if (!healthy) die('API와 DB 연결을 확인하지 못했습니다. journalctl --user -u geomsupin-api -n 50 으로 서비스 로그를 확인하세요.');
+  if (!healthy) die(`API가 ${startupTimeoutMs / 60_000}분 안에 준비되지 않았습니다. journalctl --user -u geomsupin-api -n 50 으로 서비스 로그를 확인하세요.`);
   console.log('  API와 DB 연결 확인 ✓');
 }
 
@@ -140,8 +152,8 @@ console.log(`
 ${flag('services') ? '' : `
  서버 켜기     cd ${root} && npm start        (또는 --services 로 다시 실행하면 systemd 가 관리)
 `}
- 확인          curl -s ${url.origin}/healthz        → {"ok":true}
+ 상태 확인     ${url.origin}/healthz → {"ok":true}${url.protocol === 'https:' ? ' (HTTPS 설정 및 인증서 신뢰 후)' : ''}
  방화벽        참여자 PC에서 공개 주소의 ${url.port || (url.protocol === 'https:' ? 443 : 80)}/tcp 포트에 접속할 수 있어야 합니다
  재부팅 후 유지 (systemd 사용 시) sudo loginctl enable-linger $USER
- 검수 시작    관리 링크 → 프로젝트 설정의 미리보기 연결 → 참여자 초대
+ 검수 시작    관리 링크 → 프로젝트 설정의 검수할 사이트 → 참여자 초대
 `);

@@ -21,6 +21,7 @@ interface SiteInfo {
 }
 interface WidgetAuth {
   site: SiteInfo;
+  sessionId: string;
   reviewerId: string;
   reviewerName: string;
   expiresAt: number;
@@ -106,16 +107,17 @@ export function widgetRoutes(ctx: AppContext, events: ReviewEvents) {
     const h = req.headers.authorization;
     const token = typeof h === 'string' && h.startsWith('Bearer ') ? h.slice(7).trim() : '';
     if (!token) throw httpError(401, 'no_session', '검수 세션이 없습니다');
+    const sessionId = sha256(token);
     const rows = await sql<{ reviewer_id: string; name: string; revoked_at: Date | null; link_expires: Date | null; session_expires: Date }[]>`
       select ws.reviewer_id, r.name, l.revoked_at, l.expires_at as link_expires, ws.expires_at as session_expires
       from widget_sessions ws
       join reviewers r on r.id = ws.reviewer_id
       join review_links l on l.id = ws.link_id
-      where ws.id = ${sha256(token)} and ws.site_id = ${site.id} and ws.preview_id = ${preview.id} and ws.expires_at > now()`;
+      where ws.id = ${sessionId} and ws.site_id = ${site.id} and ws.preview_id = ${preview.id} and ws.expires_at > now()`;
     const s = rows[0];
     const expiresAt = s ? Math.min(s.session_expires.getTime(), s.link_expires?.getTime() ?? Infinity) : 0;
     if (!s || s.revoked_at || expiresAt <= Date.now()) throw httpError(401, 'session_invalid', '검수 링크가 종료되었거나 세션이 만료되었습니다');
-    return { site, reviewerId: s.reviewer_id, reviewerName: s.name, expiresAt, pageOrigin };
+    return { site, sessionId, reviewerId: s.reviewer_id, reviewerName: s.name, expiresAt, pageOrigin };
   }
 
   const roundOf = async (siteId: string) => {
@@ -137,14 +139,15 @@ export function widgetRoutes(ctx: AppContext, events: ReviewEvents) {
     return r;
   }
 
-  const signed = (key: string | null) => (key ? signedUrl(config.publicUrl, config.authSecret, key, config.fileUrlTtlShort) : null);
+  const signed = (key: string | null, auth: WidgetAuth) =>
+    key ? signedUrl(config.publicUrl, config.authSecret, key, config.fileUrlTtlShort, auth.sessionId) : null;
 
   function boardView(r: BoardRow, a: WidgetAuth) {
     return {
       id: r.id, no: r.no, body: r.body, status: r.status, kind: r.kind,
-      pageUrl: r.page_url, pageTitle: r.page_title, selector: r.selector, textHint: r.text_hint,
+      pageUrl: normalizePageUrl(r.page_url), pageTitle: r.page_title, selector: r.selector, textHint: r.text_hint,
       offsetX: r.offset_x, offsetY: r.offset_y, viewportW: r.viewport_w,
-      thumbUrl: signed(r.thumb_key),
+      thumbUrl: signed(r.thumb_key, a),
       createdAt: r.created_at, updatedAt: r.updated_at, updatedBy: r.updated_by, resolvedAt: r.resolved_at,
       assignee: r.assignee1, resolutionNote: r.resolution_note,
       author: displayName(r.author_name), mine: r.reviewer_id === a.reviewerId,
@@ -159,8 +162,8 @@ export function widgetRoutes(ctx: AppContext, events: ReviewEvents) {
     return {
       ...boardView(r, a),
       asIs: r.as_is, toBe: r.to_be, browser: r.browser, os: r.os,
-      screenshotUrl: signed(r.screenshot_key),
-      proposalUrl: signed(r.proposal_key),
+      screenshotUrl: signed(r.screenshot_key, a),
+      proposalUrl: signed(r.proposal_key, a),
       ...await loadComments(sql, r.id, a.reviewerId),
     };
   }

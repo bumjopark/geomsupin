@@ -58,7 +58,7 @@ npm run onprem:setup -- --url "https://${GEOMSUPIN_IP}:3443" --bind 127.0.0.1 --
   node scripts/tls-setup.mjs --host "$GEOMSUPIN_IP" --port 3443
 ```
 
-Check the user services and the HTTPS connection from the server. A response of `{"ok":true}` from `/healthz` verifies that the HTTPS proxy reaches the API and the API can query the database.
+On first startup, the installer waits up to three minutes for database migrations and a successful API health check. Check the user services and the HTTPS connection from the server. A response of `{"ok":true}` from `/healthz` verifies that the HTTPS proxy reaches the API and the API can query the database.
 
 ```bash
 systemctl --user status --no-pager geomsupin-api geomsupin-db geomsupin-tls geomsupin-backup.timer
@@ -158,19 +158,11 @@ npx playwright install chromium firefox
 
 If the browser runtime libraries are missing on Linux, run `npx playwright install --with-deps chromium firefox` from the checkout with permission to install system packages.
 
-If PostgreSQL tools are outside `/usr/lib/postgresql/16/bin`, export `PG_BIN` again in the current shell before regenerating services. The backup service uses the value in `.env`. The service generator reads the shell environment.
+Regenerate the services after updating. The installer records whether it manages a dedicated database or connects to an external one, along with any custom `PG_BIN` supplied at setup. On an older external-database installation that still has a leftover `data/postgres/` cluster, explicitly use `npm run services:install -- --no-db`.
 
-```bash
-read -r -p 'Directory containing the PostgreSQL 16 executables: ' PG_BIN
-export PG_BIN
+```sh
+npm run services:install
 ```
-
-Run **only the command for your database type**. Omitting `--no-db` on an external database installation adds a dependency on the dedicated `geomsupin-db` service.
-
-| Database | Regenerate the service definitions |
-| --- | --- |
-| Dedicated PostgreSQL created by the installer | `npm run services:install` |
-| External PostgreSQL installed with `--database-url` | `npm run services:install -- --no-db` |
 
 ```bash
 npm run deploy -- --prepare

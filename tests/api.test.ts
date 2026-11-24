@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { unzipSync, strFromU8 } from 'fflate';
+import { migrate } from '../server/db.ts';
+import { REVIEW_URL_MIGRATION } from '../server/migrations/008_redact_review_urls.ts';
 import { createSite, HOST, openReviewer, pngDataUrl, installManager, startTestApp, type TestApp } from './helpers.ts';
 
 let t: TestApp;
@@ -433,7 +435,16 @@ describe('전체 흐름: 사이트 → 링크 → 함께 보는 사람들의 요
   it('링크를 폐기하면 초대 화면도 기존 세션도 더는 쓸 수 없다', async () => {
     const site = json(await t.app.inject({ method: 'GET', url: `/api/sites/${siteId}`, headers: cookieHeaders })).site;
     const base = site.links[0];
+    const detail = json(await t.app.inject({ url: `/api/w/requests/${requestId}`, headers: wh(sessionA) })).request;
+    const capture = new URL(detail.screenshotUrl);
+    const getCapture = () => t.app.inject({ url: capture.pathname + capture.search, headers: HOST });
+    const openCapture = await getCapture();
+    expect(openCapture.statusCode).toBe(200);
+    expect(openCapture.headers['cache-control']).toContain('no-store');
     await t.app.inject({ method: 'PATCH', url: `/api/sites/${siteId}/links/${base.id}`, headers: cookieHeaders, payload: { revoked: true } });
+    expect((await getCapture()).statusCode).toBe(403);
+    capture.searchParams.delete('session');
+    expect((await getCapture()).statusCode).toBe(403);
     const res = await t.app.inject({ method: 'GET', url: '/api/w/requests', headers: wh(sessionA) });
     expect(res.statusCode).toBe(401);
     const short = json(await t.app.inject({ method: 'GET', url: `/api/share/${token}`, headers: HOST }));
@@ -484,4 +495,36 @@ describe('위젯 파일 캐시', () => {
       expect(r.statusCode, bad).toBe(404);
     }
   });
+});
+
+
+it('sensitive queries are dropped from new and legacy URLs while the ordinary page filter and Excel link stay usable', async () => {
+  const owner = await installManager(t);
+  const { site, token } = await createSite(t, owner.headers, 'URL privacy', ORIGIN);
+  const reviewerHeaders = { ...HOST, origin: ORIGIN, 'x-gp-key': site.widgetKey };
+  const session = (await openReviewer(t, reviewerHeaders, token, { name: 'Reviewer' })).json().session;
+  const auth = { ...reviewerHeaders, authorization: `Bearer ${session}` };
+  const raw = `${ORIGIN}/app?tab=orders&code=sample-auth&state=sample-state&X-Amz-Signature=sample-signature&access_token%5B0%5D=sample-token#!/detail?id=32&%61uth_token=sample-spa&view=summary`;
+  const safe = `${ORIGIN}/app?tab=orders#!/detail?id=32&view=summary`;
+  const created = await t.app.inject({ method: 'POST', url: '/api/w/requests', headers: auth, payload: { pageUrl: raw, pageTitle: 'Orders', viewportW: 1200, viewportH: 800, body: 'URL check' } });
+  expect(created.statusCode).toBe(200);
+  const id = created.json().request.id;
+  const storedUrl = async () => (await t.sql`select page_url from requests where id = ${id}`)[0]?.page_url;
+  expect(await storedUrl()).toBe(safe);
+
+  await t.sql`update requests set page_url = ${raw} where id = ${id}`;
+  await t.sql`delete from schema_migrations where name = ${REVIEW_URL_MIGRATION}`;
+  expect(await migrate(t.sql)).toContain(REVIEW_URL_MIGRATION);
+  expect(await storedUrl()).toBe(safe);
+  expect(await migrate(t.sql)).not.toContain(REVIEW_URL_MIGRATION);
+  const board = await t.app.inject({ url: '/api/w/requests', headers: auth });
+  expect(board.json().requests[0].pageUrl).toBe(safe);
+  const filter = `?page=${encodeURIComponent(safe)}`;
+  const admin = await t.app.inject({ url: `/api/sites/${site.id}/requests${filter}`, headers: owner.headers });
+  expect(admin.json()).toMatchObject({ total: 1, requests: [{ pageUrl: safe, pageTitle: 'Orders' }], pages: [{ url: safe, count: 1 }] });
+  const exported = await t.app.inject({ url: `/api/sites/${site.id}/export.xlsx${filter}`, headers: owner.headers });
+  expect(exported.statusCode).toBe(200);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(exported.rawPayload as unknown as ExcelJS.Buffer);
+  expect(workbook.worksheets[0]!.getCell('G2').value).toMatchObject({ text: `Orders\n${safe}`, hyperlink: safe });
 });

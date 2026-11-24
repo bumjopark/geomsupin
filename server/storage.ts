@@ -19,13 +19,15 @@ export interface Storage {
 }
 
 /** 서명 주소 만들기: 저장소 종류와 무관하게 앱이 /files 로 서빙한다. */
-export function signedUrl(publicUrl: string, secret: string, key: string, ttlSec: number): string {
+export function signedUrl(publicUrl: string, secret: string, key: string, ttlSec: number, reviewSession?: string): string {
   // 만료 시각을 시간 구간 끝으로 올려 맞춘다. 같은 구간 안에서는 같은 주소가 나와서, 위젯·관리 화면이 주기적으로 목록을 새로 받아도
   // 썸네일 주소가 안 바뀌어 이미지를 다시 내려받거나 깜빡이지 않는다. 유효 시간은 ttl 이상(최대 ttl + 구간)이다.
   const bucket = Math.max(60, Math.min(3600, Math.floor(ttlSec / 4)));
   const exp = (Math.floor(Date.now() / 1000 / bucket) + 1) * bucket + ttlSec;
-  const sig = signFile(secret, key, exp);
-  return `${publicUrl}/files/${key.split('/').map(encodeURIComponent).join('/')}?exp=${exp}&sig=${sig}`;
+  const sig = signFile(secret, key, exp, reviewSession);
+  const query = new URLSearchParams({ exp: String(exp), sig });
+  if (reviewSession) query.set('session', reviewSession);
+  return `${publicUrl}/files/${key.split('/').map(encodeURIComponent).join('/')}?${query}`;
 }
 
 export function newCaptureKey(kind: 'full' | 'thumb' | 'proposal', ext: string, now = new Date()): string {

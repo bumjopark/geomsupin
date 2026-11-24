@@ -4,6 +4,7 @@ import { modalDialogs, pageRoots } from './page-dom.ts';
 //   1) 교차 출처 CSS 안의 웹폰트(@font-face)  2) sticky/fixed 요소의 스크롤 위치  3) 개인정보 가림
 import { domToCanvas, type Options as ScreenshotOptions } from 'modern-screenshot';
 import { blobToDataUrl } from '../shared/browser.ts';
+import { hasUrlCredentials } from '../shared/constants.ts';
 import { STYLE_PROPS } from './style-props.ts';
 import type { PositionMove } from './position-proposal.ts';
 import { isInReviewMask, MASK_ATTRIBUTE } from './privacy.ts';
@@ -517,8 +518,9 @@ function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<R
 async function fetchAsset(url: string, offscreen: Set<string>, proxy: CaptureOptions['proxy'], notes: CaptureNotes): Promise<string> {
   if (offscreen.has(url)) return PLACEHOLDER;
   if (!/^https?:/i.test(url)) return PLACEHOLDER;
-  let origin = '';
-  try { origin = new URL(url).origin; } catch { return PLACEHOLDER; }
+  let asset: URL;
+  try { asset = new URL(url); } catch { return PLACEHOLDER; }
+  const origin = asset.origin;
 
   // 한 CDN 이 CORS 를 안 열었으면 같은 CDN 의 다른 자원은 바로 프록시로 간다.
   if (!corsBlocked.has(origin)) {
@@ -532,9 +534,10 @@ async function fetchAsset(url: string, offscreen: Set<string>, proxy: CaptureOpt
       corsBlocked.add(origin);
     }
   }
-  if (proxy) {
+  if (proxy && !hasUrlCredentials(asset)) {
+    asset.hash = '';
     try {
-      const r = await fetchWithTimeout(`${proxy.base}/api/w/img?u=${encodeURIComponent(url)}`, { mode: 'cors', credentials: 'omit', headers: { 'X-GP-Key': proxy.key, Authorization: `Bearer ${proxy.session}` } }, 7000);
+      const r = await fetchWithTimeout(`${proxy.base}/api/w/img?u=${encodeURIComponent(asset.href)}`, { mode: 'cors', credentials: 'omit', headers: { 'X-GP-Key': proxy.key, Authorization: `Bearer ${proxy.session}` } }, 7000);
       if (r.ok) return await blobToDataUrl(await r.blob());
     } catch { /* 아래에서 빈 자리로 */ }
   }

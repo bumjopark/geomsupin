@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AppContext } from '../context.ts';
 import { signedUrl } from '../storage.ts';
 import { contentDisposition, httpError } from '../util.ts';
-import { KINDS, PRIORITIES, STATUSES, type Status } from '../../shared/constants.ts';
+import { KINDS, PRIORITIES, STATUSES, normalizePageUrl, type Status } from '../../shared/constants.ts';
 import { normalizeLocale } from '../../shared/locale.ts';
 import { ownedSite } from './sites.ts';
 import { buildWorkbook, type ExportRow } from '../excel.ts';
@@ -78,7 +78,7 @@ function requestView(ctx: AppContext, r: ReqRow, detail: boolean) {
     body: r.body,
     asIs: r.as_is,
     toBe: r.to_be,
-    pageUrl: r.page_url,
+    pageUrl: normalizePageUrl(r.page_url),
     pageTitle: r.page_title,
     browser: r.browser,
     os: r.os,
@@ -121,7 +121,7 @@ function whereClause(ctx: AppContext, siteId: string, f: Filters) {
   const conds = [sql`r.site_id = ${siteId}`];
   const statuses = (f.status ?? '').split(',').filter((s) => (STATUSES as readonly string[]).includes(s));
   if (statuses.length) conds.push(sql`r.status in ${sql(statuses)}`);
-  if (f.page) conds.push(sql`r.page_url = ${f.page}`);
+  if (f.page) conds.push(sql`r.page_url = ${normalizePageUrl(f.page)}`);
   if (f.assignee) conds.push(sql`(r.assignee1 = ${f.assignee} or r.assignee2 = ${f.assignee})`);
   if (f.round) conds.push(sql`ro.no = ${f.round}`);
   const kinds = (f.kind ?? '').split(',').filter((s) => (KINDS as readonly string[]).includes(s));
@@ -167,7 +167,7 @@ export function requestRoutes(ctx: AppContext, events: ReviewEvents) {
         requests: rows.map((r) => requestView(ctx, r, false)),
         total,
         counts: Object.fromEntries(counts.map((c) => [c.status, c.n])),
-        pages: pages.map((p) => ({ url: p.page_url, count: p.n })),
+        pages: pages.map((p) => ({ url: normalizePageUrl(p.page_url), count: p.n })),
         assignees: assignees.map((a) => a.name),
         rounds,
       };
@@ -267,7 +267,7 @@ export function requestRoutes(ctx: AppContext, events: ReviewEvents) {
           createdAt: r.created_at,
           kind: r.kind,
           priority: r.priority,
-          pageUrl: r.page_url,
+          pageUrl: normalizePageUrl(r.page_url),
           pageTitle: r.page_title,
           browser: r.browser,
           os: r.os,
